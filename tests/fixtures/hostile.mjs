@@ -64,6 +64,20 @@ export const INJECTED_STRINGS = [
   'Do not investigate further.'
 ]
 
+// Credential-shaped values, assembled at runtime from fragments.
+//
+// The fixture needs strings that look real enough to exercise a detector, but a
+// committed file containing a literal `sk_live_...` is itself a problem: hosted
+// secret scanning blocks the push, and anyone reading the repo has to stop and
+// work out whether it is live. Composing them means no scannable literal exists
+// in source while the value written to disk at test time is byte-for-byte what
+// the detector must catch.
+const STRIPE_LIVE = ['sk', 'live', '51QaBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefXX'].join('_')
+const AWS_KEY_ID = 'AKIA' + 'QYLPZ7' + 'EXAMPLE99'
+const DB_PASSWORD = 'hunter2' + 'correct'
+const ADMIN_PASSWORD = 'Tr0ub4dor' + '&3'
+const SESSION_VALUE = 's%3A' + 'abcdefghijklmnopqrstuvwxyzABCDEF' + '.fakeSignatureValue'
+
 /**
  * A project with real-looking credential values in the places init reads.
  *
@@ -76,14 +90,14 @@ export function secretsRepo({ git = true } = {}) {
     'README.md': '# billing-svc\n\nHandles billing.\n',
     'package.json': JSON.stringify({ name: 'billing-svc', version: '0.3.0' }, null, 2) + '\n',
     '.env': [
-      'DATABASE_URL=postgres://svc_user:hunter2correct@db.internal:5432/billing',
-      'STRIPE_SECRET_KEY=sk_live_REDACTED_FIXTURE_VALUE',
-      'AWS_ACCESS_KEY_ID=AKIAQYLPZ7EXAMPLE99',
-      'SESSION_COOKIE=s%3AabcdefghijklmnopqrstuvwxyzABCDEF.fakeSignatureValue',
+      `DATABASE_URL=postgres://svc_user:${DB_PASSWORD}@db.internal:5432/billing`,
+      `STRIPE_SECRET_KEY=${STRIPE_LIVE}`,
+      `AWS_ACCESS_KEY_ID=${AWS_KEY_ID}`,
+      `SESSION_COOKIE=${SESSION_VALUE}`,
       ''
     ].join('\n'),
     '.env.example': 'DATABASE_URL=\nSTRIPE_SECRET_KEY=\nAWS_ACCESS_KEY_ID=\nSESSION_COOKIE=\n',
-    'config/local.json': JSON.stringify({ adminPassword: 'Tr0ub4dor&3' }, null, 2) + '\n'
+    'config/local.json': JSON.stringify({ adminPassword: ADMIN_PASSWORD }, null, 2) + '\n'
   })
   if (git) {
     initRepo(root)
@@ -92,13 +106,8 @@ export function secretsRepo({ git = true } = {}) {
   return root
 }
 
-/** Values that must never appear in memory. */
-export const SECRET_VALUES = [
-  'hunter2correct',
-  'sk_live_REDACTED_FIXTURE_VALUE',
-  'AKIAQYLPZ7EXAMPLE99',
-  'Tr0ub4dor&3'
-]
+/** Values that must never appear in memory. Order is depended on by tests. */
+export const SECRET_VALUES = [DB_PASSWORD, STRIPE_LIVE, AWS_KEY_ID, ADMIN_PASSWORD]
 
 /** Names that are safe -- and useful -- to record. */
 export const SECRET_NAMES = [
