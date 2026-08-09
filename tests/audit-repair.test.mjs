@@ -414,6 +414,22 @@ test('repair playbook keeps the decision to apply with the coordinator', () => {
   assert.match(repair, /Findings you decline are worth a line in the report/)
 })
 
+test('repair playbook weighs findings by the tier that produced them', () => {
+  // audit.md distinguishes the two roads to `status: fallback`; repair only
+  // inherits that if it reads the trail. A demotion-driven fallback means a
+  // stronger evaluator was available and refused, which is a reason to fix the
+  // quota and rerun rather than edit memory on the strength of a self-audit. A
+  // no-tools-installed fallback carries no such signal, and both arrive with
+  // the same status and exit code.
+  assert.match(repair, /How much the finding list is worth/)
+  assert.match(repair, /Carry the audit's provenance into this decision/)
+  assert.match(repair, /`demotions`/)
+  assert.match(repair, /\| Empty \| No external evaluator was installed \|/)
+  assert.match(repair, /\| Non-empty \| A stronger evaluator was available and refused/)
+  // Same-architecture findings are a prompt to look, not a settled result.
+  assert.match(repair, /shares the blind spots/)
+})
+
 test('repair playbook resolves a misplaced claim by moving it, not copying it', () => {
   assert.match(repair, /resolved by moving the claim, not by copying it/)
   assert.match(repair, /Leaving the original in place converts one finding into a `DUPLICATED` one/)

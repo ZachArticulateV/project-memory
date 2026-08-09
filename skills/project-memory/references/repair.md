@@ -35,6 +35,30 @@ question; the cost of guessing is a file nobody can reconstruct.
 Findings you decline are worth a line in the report. A rejected finding that goes
 unmentioned comes back identically on every future audit.
 
+### How much the finding list is worth
+
+Carry the audit's provenance into this decision. A finding is only as good as the
+evaluator that produced it, and `audit` reports which tier ran.
+
+A Codex-tier finding comes from a different model architecture that read the
+repository under a read-only sandbox. A subagent-tier finding comes from the same
+architecture as whatever wrote the memory, so it shares the blind spots — treat it
+as a prompt to go look, not as a settled result, and verify the evidence yourself
+before acting on anything that would remove content.
+
+Two situations reach the weakest tier and they are not equally informative. Check
+`demotions`:
+
+| `demotions` | What it means | What it changes here |
+| --- | --- | --- |
+| Empty | No external evaluator was installed | Expected; the audit was as independent as the environment allows |
+| Non-empty | A stronger evaluator was available and refused — quota, auth, rate limit, or version incompatibility | Worth surfacing. Restoring that tier and rerunning may be cheaper than repairing on weaker evidence |
+
+Both arrive with the same status and the same exit code, so the trail is the only
+thing that distinguishes them. When a demotion drove the fallback, say so before
+applying findings — the user may prefer to fix the quota and rerun rather than
+edit memory on the strength of a self-audit.
+
 ## 2. The loop, per accepted finding
 
 Five steps, in order. Skipping step three is how a correct fact ends up in the
