@@ -1,0 +1,60 @@
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Both platforms are load-bearing, not belt-and-braces. The plugin ships
+        # hooks and scripts that run on whatever machine installed it, and the
+        # test runner itself behaves differently across the two: `node --test
+        # tests/` resolves the directory as an entry module on Windows and
+        # fails, while it works on Linux. A Linux-only matrix would have shipped
+        # that breakage.
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Bare `node --test` uses the runner's own discovery, which picks up
+      # *.test.mjs and correctly ignores the fixture builders. Do not change
+      # this to `node --test tests/` -- see the matrix comment above.
+      - name: Run tests
+        run: node --test
+
+  validate:
+    name: validate manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      # --strict fails on unrecognized fields and manifest drift that the
+      # runtime would otherwise tolerate. Catching a misspelled field here beats
+      # discovering it after publishing.
+      - name: Validate plugin manifest
+        run: claude plugin validate . --strict
+
+      # The Codex manifest is not covered by the Claude validator, so its
+      # parseability and its agreement with the Claude manifest are asserted in
+      # the test suite instead. This step just makes the JSON failure loud and
+      # early.
+      - name: Check Codex manifest parses
+        run: node -e "JSON.parse(require('node:fs').readFileSync('.codex-plugin/plugin.json','utf8'))"
