@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ZachArticulateV/project-memory/schemas/audit-findings.schema.json",
+  "title": "Project memory audit findings",
+  "description": "The one finding shape every auditor tier must satisfy. The Codex tier receives this file through --output-schema, so the model cannot emit anything else; the Gemini tier has no schema flag and is validated against this same file after the fact. That is deliberate: tier two must not be able to return a looser shape than tier one. Because Codex passes this to a structured-output decoder, the file stays inside the strict subset that decoder accepts -- every object sets additionalProperties to false and lists every one of its properties in required, and no string constraints beyond enum are used. Adding a keyword outside that subset breaks the Codex tier, and scripts/auditor-bridge.mjs fails loudly rather than silently skipping it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "findings"],
+  "properties": {
+    "summary": {
+      "type": "string",
+      "description": "One paragraph on what was checked and what was not checkable from available evidence. Not a verdict: an audit that found nothing wrong has still only examined what it could observe."
+    },
+    "findings": {
+      "type": "array",
+      "description": "Every claim the evaluator examined and has something to say about. An empty array is a valid answer and means no finding was supportable by evidence -- it does not mean the memory tree is correct.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["finding", "classification", "artifact", "evidence", "confidence"],
+        "properties": {
+          "finding": {
+            "type": "string",
+            "description": "The specific memory claim under judgement, quoted or paraphrased tightly enough that a reader can locate it. Not a category, not a summary of several claims."
+          },
+          "classification": {
+            "type": "string",
+            "description": "How the claim stands against current reality. VALID: holds. STALE: was true, no longer is. CONTRADICTED: current evidence directly refutes it. UNVERIFIABLE: cannot be checked from available evidence -- this is an honest answer, not a failure. DUPLICATED: asserted in more than one artifact. MISPLACED: true, but living in the wrong artifact. TOO_VERBOSE: correct but consuming disproportionate context. MISSING: should be recorded and is not.",
+            "enum": [
+              "VALID",
+              "STALE",
+              "CONTRADICTED",
+              "UNVERIFIABLE",
+              "DUPLICATED",
+              "MISPLACED",
+              "TOO_VERBOSE",
+              "MISSING"
+            ]
+          },
+          "artifact": {
+            "type": "string",
+            "description": "Repository-relative path of the memory artifact the finding is about, for example memory/current-state.md. For a MISSING finding, the artifact that should carry the claim."
+          },
+          "evidence": {
+            "type": "string",
+            "description": "What was actually observed, with file paths and, where they exist, line numbers, commit ids, or command output. A judgement without an observation behind it is not evidence and should not be reported."
+          },
+          "confidence": {
+            "type": "string",
+            "description": "How strongly the evidence supports the classification. Reserve high for a direct observation; use low rather than omitting a finding you are unsure of.",
+            "enum": ["high", "medium", "low"]
+          }
+        }
+      }
+    }
+  }
+}
