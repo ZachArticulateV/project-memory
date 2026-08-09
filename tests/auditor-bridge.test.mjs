@@ -11,7 +11,7 @@ import assert from 'node:assert/strict'
 import { execFile, execFileSync } from 'node:child_process'
 import { chmodSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 
 import {
   AUDIT_CLASSIFICATIONS,
@@ -28,6 +28,7 @@ import {
   findExecutable,
   loadSchema,
   normalizeFindings,
+  resolveSpawn,
   runAudit,
   unsupportedKeywords,
 } from '../scripts/auditor-bridge.mjs'
@@ -139,23 +140,36 @@ function makeStubPath(scripts) {
 function makeExec(scriptPaths, calls) {
   return function execFileStub(file, args, options, callback) {
     calls.push({ file, args, options })
-    assert.equal(typeof file, 'string', 'the command must be a bare binary name')
+    assert.equal(typeof file, 'string', 'the command must be a resolved path, not a composed string')
     assert.ok(Array.isArray(args), 'argv must be an array, never a shell string')
     assert.ok(
       options.shell === undefined || options.shell === false,
       'the bridge must never enable a shell'
     )
 
-    const script = scriptPaths[file]
+    // Mirror what a real spawn sees. The bridge hands over a RESOLVED binary
+    // path rather than a bare name, because a bare name is ENOENT against a
+    // Windows .CMD shim. Shims are routed through cmd.exe with an array argv,
+    // so unwrap that form to find the actual target and its arguments.
+    let target = file
+    let effectiveArgs = args
+    if (/(^|[\\/])cmd(\.exe)?$/i.test(file)) {
+      assert.deepEqual(args.slice(0, 3), ['/d', '/s', '/c'], 'shim invocation must use /d /s /c')
+      target = args[3]
+      effectiveArgs = args.slice(4)
+    }
+
+    const key = basename(target).replace(/\.(cmd|bat)$/i, '')
+    const script = scriptPaths[key]
     if (script === undefined) {
-      const err = new Error(`spawn ${file} ENOENT`)
+      const err = new Error(`spawn ${target} ENOENT`)
       err.code = 'ENOENT'
       callback(err, '', '')
       return
     }
     execFile(
       process.execPath,
-      [script, ...args],
+      [script, ...effectiveArgs],
       { cwd: options.cwd, encoding: 'utf8', windowsHide: true, maxBuffer: options.maxBuffer },
       callback
     )
@@ -175,7 +189,16 @@ function harness(t, scripts) {
   }
 }
 
-const callsTo = (calls, file) => calls.filter((c) => c.file === file)
+/**
+ * Calls that ultimately targeted a given CLI. The bridge spawns a resolved
+ * path, and on Windows routes .cmd shims through cmd.exe, so matching on the
+ * bare name would silently match nothing and make every assertion vacuous.
+ */
+const callsTo = (calls, name) =>
+  calls.filter((c) => {
+    const target = /(^|[\/])cmd(\.exe)?$/i.test(c.file) ? c.args[3] : c.file
+    return basename(String(target)).replace(/\.(cmd|bat)$/i, '') === name
+  })
 
 /** Content + mtime of every file under a directory, for a no-write assertion. */
 function snapshot(dir, base = dir, acc = {}) {
@@ -700,4 +723,70 @@ test('an unknown --tier is a usage error, not a silent full-tier run', () => {
 test('composeGeminiArgv keeps the prompt as a single argv element', () => {
   const argv = composeGeminiArgv({ model: 'gemini-2.5-pro', prompt: 'audit "this" & that; now' })
   assert.deepEqual(argv, ['-m', 'gemini-2.5-pro', '-p', 'audit "this" & that; now'])
+})
+
+// ---------------------------------------------------------------------------
+// Spawn resolution
+//
+// Regression cover for a bug that shipped and was caught only by running the
+// real thing: the bridge spawned the bare name `codex`, which is ENOENT on a
+// Windows npm install because the global CLI is a `.CMD` shim. Nothing lied --
+// the failure classified as `environment` and demoted honestly -- but BOTH
+// external tiers were unreachable, so every audit on those machines silently
+// ran on the weakest evaluator. An audit that always runs tier three is not the
+// capability this plugin claims to provide.
+// ---------------------------------------------------------------------------
+
+test('a Windows .CMD shim is routed through cmd.exe with an array argv', () => {
+  const shim = String.raw`C:\Users\x\AppData\Roaming\npm\codex.CMD`
+  const comspec = String.raw`C:\Windows\System32\cmd.exe`
+  const spawn = resolveSpawn(shim, ['exec', '-s', 'read-only'], {
+    platform: 'win32',
+    env: { ComSpec: comspec },
+  })
+
+  assert.equal(spawn.file, comspec)
+  assert.deepEqual(spawn.args.slice(0, 3), ['/d', '/s', '/c'])
+  assert.equal(spawn.args[3], shim)
+  // The CLI's own argv must survive intact after the shim prefix.
+  assert.deepEqual(spawn.args.slice(4), ['exec', '-s', 'read-only'])
+  // Still an array. Routing through cmd.exe must not reintroduce the shell
+  // string form that the array argv exists to avoid.
+  assert.ok(Array.isArray(spawn.args))
+})
+
+test('a real executable spawns directly on every platform', () => {
+  for (const platform of ['darwin', 'linux', 'win32']) {
+    const binary = platform === 'win32' ? String.raw`C:\tools\codex.exe` : '/usr/local/bin/codex'
+    const spawn = resolveSpawn(binary, ['exec'], { platform, env: {} })
+    assert.equal(spawn.file, binary, `${platform} should spawn the binary directly`)
+    assert.deepEqual(spawn.args, ['exec'])
+    assert.ok(spawn.viaShim === undefined)
+  }
+})
+
+test('a .cmd path on a POSIX platform is not treated as a shim', () => {
+  // The extension is meaningless off Windows; wrapping it in cmd.exe there
+  // would break a legitimately-named executable.
+  const spawn = resolveSpawn('/usr/local/bin/weird.cmd', ['exec'], { platform: 'linux', env: {} })
+  assert.equal(spawn.file, '/usr/local/bin/weird.cmd')
+})
+
+test('the bridge never spawns a bare binary name', async (t) => {
+  const { root, calls, options } = harness(t, { codex: CODEX_OK })
+  await runAudit(root, options)
+
+  assert.ok(calls.length > 0, 'no CLI was spawned at all')
+  for (const call of calls) {
+    // Assert on the CLI target, not the wrapper. A bare `cmd.exe` is fine --
+    // Windows resolves it through the OS -- but a bare `codex` is the ENOENT
+    // this fix exists to prevent, so the target must always be a resolved path.
+    const isShim = /(^|[\\/])cmd(\.exe)?$/i.test(call.file)
+    const target = isShim ? call.args[3] : call.file
+    assert.match(
+      String(target),
+      /[\\/]/,
+      `spawned a bare name (${target}); resolve it through findExecutable first`
+    )
+  }
 })

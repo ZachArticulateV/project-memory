@@ -705,6 +705,31 @@ export function assertNoWriteEnablingFlags(argv) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Resolve what to actually hand child_process, given a resolved binary path.
+ *
+ * Windows npm installs a global CLI as a `.CMD` shim, and Node refuses to
+ * execute `.cmd`/`.bat` through execFile without a shell. Passing the bare name
+ * fails with ENOENT; passing the resolved shim path fails too. Either way the
+ * bridge classifies it as an environment failure and demotes -- which is honest
+ * but catastrophic in effect, because on those machines BOTH external tiers are
+ * unreachable and every audit silently lands on the weakest evaluator.
+ *
+ * The fix routes shims through cmd.exe with an ARRAY argv. No shell string is
+ * composed, so nothing re-opens the injection surface the array form closes:
+ * `/d` skips AutoRun, `/s` fixes quote handling, `/c` runs and exits.
+ *
+ * Everything else -- real executables, every non-Windows platform -- spawns
+ * directly, unchanged.
+ */
+export function resolveSpawn(binaryPath, argv, { platform = process.platform, env = process.env } = {}) {
+  const isShim = platform === 'win32' && /\.(cmd|bat)$/i.test(binaryPath)
+  if (!isShim) return { file: binaryPath, args: argv.slice() }
+
+  const comspec = env.ComSpec || env.COMSPEC || 'cmd.exe'
+  return { file: comspec, args: ['/d', '/s', '/c', binaryPath, ...argv], viaShim: true }
+}
+
+/**
  * Run a CLI. ARRAY argv only; a string command is a TypeError, not a fallback.
  * Never throws — a failed run is a classifiable result, not an exception.
  */
@@ -744,7 +769,7 @@ function runCommand(file, args, { cwd, env, timeout, execFileImpl }) {
 const publicInvocation = (invocation) =>
   invocation === null ? null : { file: invocation.file, args: invocation.args.slice() }
 
-async function runCodexTier({ root, schemaPath, schema, prompt, execFileImpl, env, timeout, tmpDir }) {
+async function runCodexTier({ root, schemaPath, schema, prompt, execFileImpl, env, timeout, tmpDir, binary, platform }) {
   // The evaluator's JSON lands outside the repository. The bridge writing into
   // the tree it is auditing would make the read-only guarantee meaningless.
   const dir = mkdtempSync(join(tmpDir, 'pm-audit-'))
@@ -752,7 +777,8 @@ async function runCodexTier({ root, schemaPath, schema, prompt, execFileImpl, en
 
   try {
     const argv = assertNoWriteEnablingFlags(composeCodexArgv({ root, schemaPath, outputPath, prompt }))
-    const run = await runCommand('codex', argv, { cwd: root, env, timeout, execFileImpl })
+    const spawn = resolveSpawn(binary, argv, { platform, env })
+    const run = await runCommand(spawn.file, spawn.args, { cwd: root, env, timeout, execFileImpl })
 
     if (!run.ok) {
       const failure = classifyFailure(run)
@@ -804,9 +830,10 @@ async function runCodexTier({ root, schemaPath, schema, prompt, execFileImpl, en
   }
 }
 
-async function runGeminiTier({ root, schema, prompt, model, execFileImpl, env, timeout }) {
+async function runGeminiTier({ root, schema, prompt, model, execFileImpl, env, timeout, binary, platform }) {
   const argv = composeGeminiArgv({ model, prompt })
-  const run = await runCommand('gemini', argv, { cwd: root, env, timeout, execFileImpl })
+  const spawn = resolveSpawn(binary, argv, { platform, env })
+  const run = await runCommand(spawn.file, spawn.args, { cwd: root, env, timeout, execFileImpl })
 
   if (!run.ok) {
     const failure = classifyFailure(run)
@@ -914,8 +941,8 @@ export async function runAudit(root, options = {}) {
 
     const attempt =
       name === 'codex'
-        ? await runCodexTier({ root: absRoot, schemaPath, schema, prompt: briefing, execFileImpl, env, timeout, tmpDir })
-        : await runGeminiTier({ root: absRoot, schema, prompt: briefing, model: geminiModel, execFileImpl, env, timeout })
+        ? await runCodexTier({ root: absRoot, schemaPath, schema, prompt: briefing, execFileImpl, env, timeout, tmpDir, binary, platform })
+        : await runGeminiTier({ root: absRoot, schema, prompt: briefing, model: geminiModel, execFileImpl, env, timeout, binary, platform })
 
     attempt.binary = toPosix(binary)
     const { summary, findings, ...record } = attempt

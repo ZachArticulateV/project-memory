@@ -54,9 +54,10 @@ system reports which tier ran, precisely because the tiers are not equivalent.
 
 ## Model behavior is instructed, not enforced
 
-Six of this plugin's surfaces are Markdown read by a model: the router and the
-five mode playbooks. They shape behavior. They do not constrain it the way code
-does.
+Most of this plugin is Markdown read by a model: the router, six mode playbooks,
+three shared policy references, the auditor's system prompt, the writing rule,
+and nine templates. All of it shapes behavior. None of it constrains behavior the
+way code does.
 
 Three things *are* mechanically enforced, and they are the ones where a promise
 would not have been good enough:
@@ -111,6 +112,20 @@ The stubs cover the contract and every demotion path. They cannot confirm that a
 real Codex run against a deliberately stale memory tree returns a useful
 `STALE` or `CONTRADICTED` finding — only that a well-formed one would be handled
 correctly.
+
+Running the real CLIs is worth doing before trusting the tiering, and not only in
+principle. An earlier build spawned the bare name `codex`, which is `ENOENT`
+against a Windows npm install because the global CLI is a `.CMD` shim that Node
+refuses to execute without a shell. Nothing reported falsely — the failure
+classified as an environment incompatibility and demoted honestly — but both
+external tiers were unreachable, so every audit on such a machine silently ran on
+the weakest evaluator. The suite was green throughout, because the stubs were
+spawned by a seam that never exercised the resolution path. Shims now route
+through `cmd.exe` with an array argv, and a regression test asserts the CLI
+target is always a resolved path.
+
+The general lesson holds beyond this bug: a stubbed integration proves the
+contract, not the connection.
 
 ## Platform and toolchain assumptions
 
