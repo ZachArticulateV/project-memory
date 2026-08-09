@@ -1,0 +1,35 @@
+{
+  "description": "Two deterministic signals: an orientation line at session start when project memory needs attention, and structural warnings after a memory file is edited. Both are advisory, both are read-only, and neither can block.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/session-status-hook.mjs\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/post-tool-validate-hook.mjs\"",
+            "timeout": 5,
+            "if": "Edit(memory/**/*.md)"
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/post-tool-validate-hook.mjs\"",
+            "timeout": 5,
+            "if": "Edit(CLAUDE.md)"
+          }
+        ]
+      }
+    ]
+  }
+}
