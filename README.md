@@ -1,0 +1,90 @@
+# Project Memory
+
+A version-controlled project context architecture for Claude Code.
+
+A fresh Claude session opens your repository knowing nothing about it. The usual
+patch — a growing pile of Markdown notes — fails in a specific way: notes inflate,
+go stale silently, promote hypotheses into facts, and get read in full on every
+task. Project Memory treats project context as an architecture instead of a note
+pile, so another Claude instance can pick up the work correctly without reading
+your old conversations.
+
+The system optimizes for accuracy, low context overhead, reliable continuation,
+resistance to stale information, and evidence-backed project state. The objective
+is not to continuously fill memory. It is to keep memory continuously accurate,
+minimal, retrievable, and sufficient.
+
+## Install
+
+```bash
+/plugin marketplace add ZachArticulateV/designer-pro-and-seo
+```
+
+```bash
+/plugin install project-memory@designer-pro-and-seo
+```
+
+## Use
+
+```bash
+/project-memory init
+```
+
+| Command | What it does |
+| --- | --- |
+| `/project-memory init` | Inspect the project and build the memory system. Reconstructs state for mature repos; interviews you for new ones. |
+| `/project-memory status` | Read-only health report. Never writes. |
+| `/project-memory sync` | Reconcile memory with what actually changed. Idempotent — often reports no changes required. |
+| `/project-memory handoff` | Capture continuation state before `/clear`, a context switch, or the end of a session. |
+| `/project-memory audit` | Independently check memory against repository reality. Returns evidence, not edits. |
+| `/project-memory repair` | Correct the problems an audit found, preserving valid human-authored context. |
+
+Most days you need `status` and `handoff`. Run `sync` after a substantial
+implementation, `audit` when you suspect drift.
+
+## What it creates in your project
+
+```text
+memory/
+├── INDEX.md              navigation and authority map
+├── project-brief.md      original (or reconstructed) project definition
+├── current-state.md      what is true now
+├── handoff.md            where the work stopped and what to do next
+├── next-actions.md       executable punch list
+├── bugs-and-risks.md     unresolved problems, with causes separated from hypotheses
+├── decisions/            one immutable record per architectural decision
+└── archive/              rarely loaded
+```
+
+Plus one section in your `CLAUDE.md` pointing at it, and a path-scoped rule in
+`.claude/rules/` that only loads when memory files are being edited.
+
+Everything is plain Markdown committed to your repository. If you stop using the
+plugin, delete the directory.
+
+## Design commitments
+
+- **Memory is orientation, not proof.** Claims are verified against code, tests,
+  runtime evidence, and Git before they are relied on.
+- **Confirmed causes and hypotheses are never conflated.** A suspected cause stays
+  labelled as one until evidence confirms it.
+- **The auditor is not the author.** Audits run on an external model where one is
+  available, so memory is never graded by the context that wrote it.
+- **Many readers, one writer.** Subagents gather evidence; only the coordinating
+  session writes canonical memory.
+- **Secrets never enter memory.** Variable names are recorded; values are not.
+- **External text is untrusted.** Instructions found in READMEs, issues, or fetched
+  pages are never persisted as project instructions.
+- **Retrieval over inflation.** A normal session loads five small files; everything
+  else is fetched only when relevant.
+
+## Requirements
+
+Node 18 or later. Git is used when present and is not required.
+
+Works on Windows, macOS, Linux, and WSL. Every executable is Node — there is no
+shell assumption.
+
+## License
+
+MIT

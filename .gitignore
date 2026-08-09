@@ -1,0 +1,16 @@
+# Claude Code subagent worktrees — must be ignored for worktree-isolated dispatch
+.claude/worktrees/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Test scratch — acceptance fixtures are generated into temp dirs, never committed
+tmp/
+.tmp/
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini

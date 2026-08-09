@@ -1,0 +1,25 @@
+{
+  "name": "project-memory",
+  "displayName": "Project Memory",
+  "version": "0.1.0",
+  "description": "A version-controlled project context architecture for Claude Code. Keeps project memory accurate, minimal, retrievable, and evidence-backed across fresh sessions, context resets, branches, and worktrees. One skill with six modes (init, status, sync, handoff, audit, repair), a deterministic Node core, two lightweight hooks, a path-scoped writing rule, and an independent auditor that runs on an external model so memory is never graded by the context that wrote it.",
+  "author": {
+    "name": "Zachary W.",
+    "url": "https://articulatevision.com"
+  },
+  "homepage": "https://github.com/ZachArticulateV/project-memory",
+  "repository": "https://github.com/ZachArticulateV/project-memory",
+  "license": "MIT",
+  "keywords": [
+    "memory",
+    "context-engineering",
+    "project-context",
+    "handoff",
+    "session-continuity",
+    "audit",
+    "evidence",
+    "worktrees",
+    "documentation"
+  ],
+  "skills": "./skills/"
+}
