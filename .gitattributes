@@ -1,0 +1,10 @@
+# Normalize to LF in the repository. This plugin ships to Windows, macOS,
+# Linux, and WSL; committed CRLF would break shebangs and make every
+# cross-platform diff noisy.
+* text=auto eol=lf
+
+# Binary assets, if any are added later.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
