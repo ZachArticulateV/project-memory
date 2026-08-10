@@ -130,10 +130,14 @@ export const SCENARIOS = [
     id: 'G',
     title: 'Multiple Git worktrees',
     expects: ['branch-specific handoffs do not clobber one another'],
-    coverage: COVERAGE.MACHINE,
+    // Promotion, slug derivation, and discovery are deterministic and tested.
+    // The collision-safe WRITE is performed by a model following handoff.md,
+    // so the end-to-end non-clobber property is not machine-verified. An
+    // external review caught this labelled as MACHINE.
+    coverage: COVERAGE.PARTIAL,
     fixtures: ['workstreams.mjs: twoWorktreeRepo'],
     mode: 'handoff',
-    live: false,
+    live: true,
   },
   {
     id: 'H',

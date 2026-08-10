@@ -68,6 +68,7 @@ import {
   staleMemoryRepo,
   wrongRootCauseRepo,
 } from '../fixtures/drift.mjs'
+import { twoWorktreeRepo } from '../fixtures/workstreams.mjs'
 import { LIVE_ENV_VAR, label } from '../fixtures/scenarios.mjs'
 
 import {
@@ -630,4 +631,45 @@ test('U8 live: the same argv with a pinned model, for environments the bridge ca
   const drift = parsed.findings.filter((f) => f.classification === 'STALE' || f.classification === 'CONTRADICTED')
   assert.ok(drift.length > 0, `expected a STALE or CONTRADICTED finding; got ${JSON.stringify(parsed.findings, null, 2)}`)
   assert.equal(memoryDigest(root), before, 'the pinned Codex run modified memory despite -s read-only')
+})
+
+// ---------------------------------------------------------------------------
+// Scenario G (write half) — Multiple Git worktrees
+//
+// The deterministic half of G -- promotion, slug derivation, handoff discovery
+// -- is asserted in tests/handoff-worktree.test.mjs against the real functions.
+// What no unit test can decide is whether a model FOLLOWING handoff.md actually
+// leaves the other workstream's continuation state alone, because the write is
+// performed by the model, not by shipped code.
+//
+// This scenario was labelled machine-verified until an external review pointed
+// out that the unit test performs the collision-safe write itself.
+// ---------------------------------------------------------------------------
+
+test(label('G', 'write half'), live(), (t) => {
+  const { root, worktree, branchA, branchB } = twoWorktreeRepo()
+  cleanupAfter(t, root)
+
+  // branchA's handoff exists from the fixture. Writing branchB's from inside
+  // the linked worktree must not touch it.
+  const otherHandoff = join(root, 'memory', 'handoffs', `${branchA}.md`)
+  const before = readFileSync(otherHandoff, 'utf8')
+
+  runMode(worktree, 'handoff')
+
+  assert.equal(
+    readFileSync(otherHandoff, 'utf8'),
+    before,
+    `writing a handoff on ${branchB} modified ${branchA}'s continuation state`
+  )
+
+  // And branchB's own handoff must exist and declare the right branch -- a
+  // handoff written into the wrong file is the same failure wearing a mask.
+  const mine = join(worktree, 'memory', 'handoffs', `${branchB}.md`)
+  assert.ok(existsSync(mine), `no handoff was written for ${branchB}`)
+  const declared = readFileSync(mine, 'utf8').replace(/\s+/g, ' ')
+  assert.ok(
+    declared.includes(`Branch: ${branchB}`),
+    'the handoff does not declare the branch it was written on'
+  )
 })

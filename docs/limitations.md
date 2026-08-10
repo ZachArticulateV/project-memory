@@ -83,7 +83,7 @@ model. The spec's thirteen acceptance scenarios split accordingly:
 
 | Scenario | Status |
 | --- | --- |
-| G — worktree handoffs do not clobber | Machine-verified (probe and promotion logic) |
+| G — worktree handoffs do not clobber | Partially — promotion, slug derivation, and discovery are machine-verified; the collision-safe write itself is model behavior |
 | I — malicious external instruction | Partially — fixture and policy verified; refusal is model behavior |
 | J — secret encountered in config | Partially — the validator backstop is verified; declining to write one is model behavior |
 | L — no Git repository | Machine-verified |
@@ -120,9 +120,26 @@ refuses to execute without a shell. Nothing reported falsely — the failure
 classified as an environment incompatibility and demoted honestly — but both
 external tiers were unreachable, so every audit on such a machine silently ran on
 the weakest evaluator. The suite was green throughout, because the stubs were
-spawned by a seam that never exercised the resolution path. Shims now route
-through `cmd.exe` with an array argv, and a regression test asserts the CLI
-target is always a resolved path.
+spawned by a seam that never exercised the resolution path.
+
+The first fix for that was itself worse than the bug. It routed shims through
+`cmd.exe /d /s /c` with an array argv, on the reasoning that an array closes the
+injection surface. It does not. Node builds a command line from the array and
+`cmd.exe` re-parses it before the target runs, so a `"` closes the argument, `&`
+chains a command, and `%NAME%` expands regardless of quoting. Because the audit
+prompt concatenates raw memory content, a string committed to a repository's
+`memory/` could execute arbitrary commands on any Windows machine that audited
+it — memory-poisoning to code execution, in the component whose entire job is to
+evaluate untrusted memory safely. An external review reproduced it with a probe.
+
+`cmd.exe` is now gone from that path: npm shims are resolved to their Node entry
+point and spawned directly, an unresolvable shim is refused rather than routed
+through an interpreter, and the prompt travels on stdin so untrusted text never
+becomes part of a command line at all.
+
+Two lessons, both earned: a stubbed integration proves the contract, not the
+connection — and *"we passed an array, so it is safe"* is a claim about one
+layer, not about every layer the argument crosses.
 
 The general lesson holds beyond this bug: a stubbed integration proves the
 contract, not the connection.

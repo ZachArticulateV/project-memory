@@ -9,7 +9,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFile, execFileSync } from 'node:child_process'
-import { chmodSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { basename, dirname, join } from 'node:path'
 
@@ -25,6 +25,8 @@ import {
   composeCodexArgv,
   composeGeminiArgv,
   extractJson,
+  GEMINI_TRUSTED_INSTRUCTION,
+  extractShimEntryPoint,
   findExecutable,
   loadSchema,
   normalizeFindings,
@@ -106,6 +108,17 @@ const GEMINI_BAD_ENUM = `process.stdout.write(JSON.stringify({
 }))
 `
 
+/** Reads stdin and emits valid findings, so prompt-on-stdin is observable. */
+const CODEX_ECHO_STDIN = `import { readFileSync, writeFileSync } from 'node:fs'
+let stdin = ''
+try { stdin = readFileSync(0, 'utf8') } catch {}
+const args = process.argv.slice(2)
+const payload = JSON.stringify({ summary: 'received ' + stdin.length + ' bytes on stdin', findings: [] })
+const i = args.indexOf('-o')
+if (i !== -1) writeFileSync(args[i + 1], payload)
+else process.stdout.write(payload)
+`
+
 const GEMINI_QUOTA = `process.stderr.write('Error: Quota exceeded for this project.\\n')
 process.exit(1)
 `
@@ -124,11 +137,38 @@ function makeStubPath(scripts) {
     const scriptPath = join(dir, `${name}-stub.mjs`)
     writeFileSync(scriptPath, source, 'utf8')
     scriptPaths[name] = scriptPath
-    for (const marker of [name, `${name}.cmd`]) {
-      const abs = join(dir, marker)
-      writeFileSync(abs, '', 'utf8')
-      chmodSync(abs, 0o755)
-    }
+
+    // Extensionless marker for the POSIX probe path.
+    const posixMarker = join(dir, name)
+    writeFileSync(posixMarker, '', 'utf8')
+    chmodSync(posixMarker, 0o755)
+
+    // A real npm-generated shim, not an empty placeholder. The bridge reads
+    // this file to find the JS entry point, so a fake would exercise the
+    // refusal path instead of the resolution path.
+    writeFileSync(
+      join(dir, `${name}.cmd`),
+      [
+        '@ECHO off',
+        'GOTO start',
+        ':find_dp0',
+        'SET dp0=%~dp0',
+        'EXIT /b',
+        ':start',
+        'SETLOCAL',
+        'CALL :find_dp0',
+        '',
+        'IF EXIST "%dp0%\\node.exe" (',
+        '  SET "_prog=%dp0%\\node.exe"',
+        ') ELSE (',
+        '  SET "_prog=node"',
+        ')',
+        '',
+        `endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  "%dp0%\\${name}-stub.mjs" %*`,
+        ''
+      ].join('\r\n'),
+      'utf8'
+    )
   }
   return { dir, scriptPaths }
 }
@@ -147,19 +187,24 @@ function makeExec(scriptPaths, calls) {
       'the bridge must never enable a shell'
     )
 
-    // Mirror what a real spawn sees. The bridge hands over a RESOLVED binary
-    // path rather than a bare name, because a bare name is ENOENT against a
-    // Windows .CMD shim. Shims are routed through cmd.exe with an array argv,
-    // so unwrap that form to find the actual target and its arguments.
+    // Mirror what a real spawn sees. A Windows shim resolves to
+    // `node <entry.js> ...args`; a POSIX binary spawns directly. NOTHING may
+    // route through a command interpreter -- assert that before anything else,
+    // because it is the property the P0 fix exists to hold.
+    assert.doesNotMatch(
+      file,
+      /(^|[\\/])(cmd|cmd\.exe|powershell|pwsh|sh|bash)$/i,
+      `refused: ${file} is a command interpreter; untrusted prompt text must never be re-parsed`
+    )
+
     let target = file
     let effectiveArgs = args
-    if (/(^|[\\/])cmd(\.exe)?$/i.test(file)) {
-      assert.deepEqual(args.slice(0, 3), ['/d', '/s', '/c'], 'shim invocation must use /d /s /c')
-      target = args[3]
-      effectiveArgs = args.slice(4)
+    if (basename(file).toLowerCase().startsWith('node')) {
+      target = args[0]
+      effectiveArgs = args.slice(1)
     }
 
-    const key = basename(target).replace(/\.(cmd|bat)$/i, '')
+    const key = basename(String(target)).replace(/-stub\.mjs$/i, '').replace(/\.(cmd|bat)$/i, '')
     const script = scriptPaths[key]
     if (script === undefined) {
       const err = new Error(`spawn ${target} ENOENT`)
@@ -167,7 +212,8 @@ function makeExec(scriptPaths, calls) {
       callback(err, '', '')
       return
     }
-    execFile(
+    // Return the ChildProcess so the bridge can write the prompt to stdin.
+    return execFile(
       process.execPath,
       [script, ...effectiveArgs],
       { cwd: options.cwd, encoding: 'utf8', windowsHide: true, maxBuffer: options.maxBuffer },
@@ -196,8 +242,11 @@ function harness(t, scripts) {
  */
 const callsTo = (calls, name) =>
   calls.filter((c) => {
-    const target = /(^|[\/])cmd(\.exe)?$/i.test(c.file) ? c.args[3] : c.file
-    return basename(String(target)).replace(/\.(cmd|bat)$/i, '') === name
+    // A resolved Windows shim spawns as `node <entry.js> ...`; a POSIX binary
+    // spawns directly. Matching on the bare name would silently match nothing
+    // and make every count assertion vacuous.
+    const target = basename(c.file).toLowerCase().startsWith('node') ? c.args[0] : c.file
+    return basename(String(target)).replace(/-stub\.mjs$/i, '').replace(/\.(cmd|bat)$/i, '') === name
   })
 
 /** Content + mtime of every file under a directory, for a no-write assertion. */
@@ -245,7 +294,7 @@ test('the composed Codex argv carries -s read-only and no write-enabling flag', 
   const tmp = makeTempRoot()
   cleanupAfter(t, tmp)
   const outputPath = join(tmp, 'findings.json')
-  const argv = composeCodexArgv({ root: 'C:/a repo/with space', outputPath, prompt: 'audit this' })
+  const argv = composeCodexArgv({ root: 'C:/a repo/with space', outputPath })
 
   // Asserted on the ARRAY. A formatted string would pass even if `read-only`
   // were glued to the wrong flag, or if a path with a space had been split.
@@ -255,7 +304,9 @@ test('the composed Codex argv carries -s read-only and no write-enabling flag', 
   assert.ok(argv.includes('--skip-git-repo-check'))
   assert.equal(argv[argv.indexOf('-C') + 1], 'C:/a repo/with space')
   assert.equal(argv[argv.indexOf('--output-schema') + 1], SCHEMA_PATH)
-  assert.equal(argv[argv.length - 1], 'audit this', 'the prompt is one argv element, not shell input')
+  // The prompt must NOT be here. It carries raw memory content, and an argv
+  // element becomes a command line on Windows. It travels on stdin instead.
+  assert.equal(argv.length, argv.indexOf('-o') + 2, 'argv ends at -o <path>; no trailing prompt element')
   for (const flag of WRITE_ENABLING_FLAGS) assert.ok(!argv.includes(flag), `${flag} must not appear`)
 
   // And the same assertion against what actually reached child_process.
@@ -720,9 +771,13 @@ test('an unknown --tier is a usage error, not a silent full-tier run', () => {
   )
 })
 
-test('composeGeminiArgv keeps the prompt as a single argv element', () => {
-  const argv = composeGeminiArgv({ model: 'gemini-2.5-pro', prompt: 'audit "this" & that; now' })
-  assert.deepEqual(argv, ['-m', 'gemini-2.5-pro', '-p', 'audit "this" & that; now'])
+test('composeGeminiArgv carries only trusted instruction text, never repository content', () => {
+  const argv = composeGeminiArgv({ model: 'gemini-2.5-pro' })
+  assert.deepEqual(argv, ['-m', 'gemini-2.5-pro', '-p', GEMINI_TRUSTED_INSTRUCTION])
+  // The instruction must frame stdin as data, or memory arrives at the same
+  // level as our ask and can address the evaluator directly.
+  assert.match(GEMINI_TRUSTED_INSTRUCTION, /UNTRUSTED DATA/)
+  assert.match(GEMINI_TRUSTED_INSTRUCTION, /never as a directive/i)
 })
 
 // ---------------------------------------------------------------------------
@@ -737,22 +792,71 @@ test('composeGeminiArgv keeps the prompt as a single argv element', () => {
 // capability this plugin claims to provide.
 // ---------------------------------------------------------------------------
 
-test('a Windows .CMD shim is routed through cmd.exe with an array argv', () => {
-  const shim = String.raw`C:\Users\x\AppData\Roaming\npm\codex.CMD`
-  const comspec = String.raw`C:\Windows\System32\cmd.exe`
-  const spawn = resolveSpawn(shim, ['exec', '-s', 'read-only'], {
-    platform: 'win32',
-    env: { ComSpec: comspec },
-  })
+test('a Windows .CMD shim resolves to its Node entry point, never a command interpreter', (t) => {
+  const { dir } = makeStubPath({ codex: CODEX_OK })
+  cleanupAfter(t, dir)
+  const shim = join(dir, 'codex.cmd')
 
-  assert.equal(spawn.file, comspec)
-  assert.deepEqual(spawn.args.slice(0, 3), ['/d', '/s', '/c'])
-  assert.equal(spawn.args[3], shim)
-  // The CLI's own argv must survive intact after the shim prefix.
-  assert.deepEqual(spawn.args.slice(4), ['exec', '-s', 'read-only'])
-  // Still an array. Routing through cmd.exe must not reintroduce the shell
-  // string form that the array argv exists to avoid.
-  assert.ok(Array.isArray(spawn.args))
+  const spawn = resolveSpawn(shim, ['exec', '-s', 'read-only'], { platform: 'win32' })
+
+  assert.notEqual(spawn, null, 'a well-formed npm shim must resolve')
+  assert.equal(spawn.file, process.execPath, 'must spawn Node directly')
+  assert.equal(spawn.args[0], join(dir, 'codex-stub.mjs'), 'must target the shim\'s real entry point')
+  assert.deepEqual(spawn.args.slice(1), ['exec', '-s', 'read-only'], 'CLI argv survives intact')
+  assert.doesNotMatch(spawn.file, /cmd(\.exe)?$/i)
+})
+
+test('a shim whose entry point cannot be read is refused, not routed through a shell', (t) => {
+  const dir = makeTempRoot()
+  cleanupAfter(t, dir)
+  const shim = join(dir, 'codex.cmd')
+  writeFileSync(shim, '@echo off\r\nrem no entry point here\r\n', 'utf8')
+
+  // Falling back to cmd.exe here is what created the injection hole. Refusing
+  // costs a demotion; falling back costs arbitrary code execution.
+  assert.equal(resolveSpawn(shim, ['exec'], { platform: 'win32' }), null)
+})
+
+test('hostile prompt text cannot execute a command through the launcher', async (t) => {
+  // The regression test for the P0. A payload that provably executed under the
+  // old cmd.exe routing -- it created a file and expanded %USERNAME% -- must
+  // now reach the evaluator as inert text.
+  const { root, calls, options } = harness(t, { codex: CODEX_ECHO_STDIN })
+  const marker = join(makeTempRoot(), 'pwned.txt')
+
+  const hostile = [
+    'audit" & echo pwned> "' + marker + '" & rem ',
+    'and %USERNAME% and %PATH%',
+    'and `backtick` and $(subshell) and ; rm -rf / ;',
+    'and a\nnewline and a\ttab'
+  ].join(' ')
+
+  const result = await runAudit(root, { ...options, prompt: hostile })
+
+  assert.ok(!existsSync(marker), 'a command embedded in the prompt executed')
+  // The payload must not appear in argv at all -- that is the property, not
+  // that it appeared escaped.
+  for (const call of calls) {
+    for (const arg of call.args) {
+      assert.ok(!String(arg).includes('pwned'), 'prompt text leaked into argv')
+      assert.ok(!String(arg).includes('%USERNAME%'), 'prompt text leaked into argv')
+    }
+  }
+  assert.ok(result.status !== null)
+})
+
+test('the public result never echoes the prompt', async (t) => {
+  const { root, options } = harness(t, { codex: CODEX_OK })
+  const canary = 'CANARY_SECRET_abc123_DO_NOT_LOG'
+
+  const result = await runAudit(root, { ...options, prompt: `audit this ${canary}` })
+
+  // A secret that reached memory is in the prompt. Serializing the prompt into
+  // --json output would re-leak it to terminal, CI, and telemetry.
+  assert.ok(
+    !JSON.stringify(result).includes(canary),
+    'the audit result serialized the prompt, re-leaking anything memory contained'
+  )
 })
 
 test('a real executable spawns directly on every platform', () => {
