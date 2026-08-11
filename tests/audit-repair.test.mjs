@@ -206,9 +206,8 @@ test('the grant assertions are on frontmatter, not on prompt text', () => {
 
 test('auditor prompt states its tier and that it is the weakest one', () => {
   const body = flat(agent.body)
-  assert.match(body, /third tier/i)
+  assert.match(body, /second tier/i)
   assert.match(body, /Codex/)
-  assert.match(body, /Gemini/)
   // The point of the tier existing at all: the capability never disappears, it
   // only gets less independent.
   assert.match(body, /weaker evidence/i)

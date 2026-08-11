@@ -152,9 +152,9 @@ Node 18 or later. Git is used when present and is not required.
 Works on Windows, macOS, Linux, and WSL. Every executable is Node — there is no
 shell assumption.
 
-`codex` and `gemini` are optional. Without them, `audit` runs on a bundled
-subagent and says so — a Claude auditing Claude's work is weaker evidence, and
-the report names the evaluator that actually ran.
+`codex` is optional. Without it, `audit` runs on a bundled subagent and says so —
+a Claude auditing Claude's work is weaker evidence, and the report names the
+evaluator that actually ran.
 
 ## License
 

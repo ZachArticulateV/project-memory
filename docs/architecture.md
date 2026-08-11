@@ -228,16 +228,32 @@ and validates what comes back against `schemas/audit-findings.schema.json`.
 | Tier | Evaluator | Independence | Read-only guaranteed by |
 | --- | --- | --- | --- |
 | 1 | Codex CLI | Different model architecture | The sandbox: `-s read-only` |
-| 2 | Gemini CLI | Different model architecture | Prompt, plus schema validation of the result |
-| 3 | Bundled `memory-auditor` subagent | None — same architecture as the writer | Its tool grant, which contains no writer |
+| 2 | Bundled `memory-auditor` subagent | None — same architecture as the writer | Its tool grant, which contains no writer |
+
+**There used to be a Gemini tier between them, and removing it was the right
+call.** The installed CLI merged the *audited* repository's
+`.gemini/settings.json` over the operator's own, and that file accepts
+`toolDiscoveryCommand`, which gemini-cli hands to `execSync` during startup — a
+probe confirmed the execution, before any model call, on every platform. No flag
+disabled it, and the tier had never completed a run. An evaluator whose
+configuration the audited tree controls is worse than no second evaluator: the
+audit exists to catch corrupted memory, and that is exactly the input that could
+switch it off. `git log` has the implementation if a current CLI ever makes it
+worth reviving.
 
 The Codex argv is composed by the shipped code and is exactly:
 
 ```text
-codex exec -s read-only --skip-git-repo-check -C <root>
+codex exec -c project_doc_max_bytes=0 --ignore-rules
+     -s read-only --skip-git-repo-check -C <root>
      --output-schema <absolute path to schemas/audit-findings.schema.json>
-     -o <temp file> <prompt>
+     -o <temp file>
 ```
+
+The prompt is **not** in that argv — it travels on stdin, because it carries raw
+memory content and an argv element becomes a command line on Windows. The two
+leading flags stop the audited repository from instructing its own auditor
+through `AGENTS.md` or a project `.rules` file.
 
 Before execution that argv passes a write-guard that rejects `--full-auto`,
 `--yolo`, `--dangerously-bypass-approvals-and-sandbox`,
@@ -247,10 +263,11 @@ also rejects a `-s`/`--sandbox` value of `workspace-write` or
 allowlist: it catches the two write-capable modes Codex ships today, and a
 sandbox name it has never heard of would pass it. The guard is a second line
 behind the composer, which is the thing that actually decides the value.
-Gemini has no output-schema
-flag, so its JSON is validated after the fact against the same schema, with
-classifications compared **case-sensitively** — folding `stale` to `STALE` would
-let tier two answer in a vocabulary tier one cannot produce.
+The reply is also re-validated against the same schema after the fact, with
+classifications compared **case-sensitively**. Constraining the decoder and
+checking the result are not redundant: the second catches a reply that satisfied
+the decoder but not this validator, and folding `stale` up to `STALE` would
+accept a vocabulary the schema does not define.
 
 **Failure classification is the load-bearing part.** Quota, auth, and rate-limit
 signals demote to the next tier. So does environment or version incompatibility —
@@ -268,11 +285,13 @@ that never renders the text form still cannot mistake findings for applied
 changes.
 
 One observed environmental note, because it is shipped behavior rather than
-theory: on Windows, npm installs `codex` and `gemini` as `.CMD` shims, and Node
-refuses to spawn `.cmd`/`.bat` through `execFile` without a shell. The bridge
-finds the binary, fails to spawn it, classifies the result as an environment
-incompatibility, and demotes. Nothing false is reported — but on such an install
-both external tiers are unreachable and every audit runs on tier three.
+theory: on Windows, npm installs `codex` as a `.CMD` shim, and Node refuses to
+spawn `.cmd`/`.bat` through `execFile` without a shell. An earlier build found
+the binary, failed to spawn it, classified the result as an environment
+incompatibility, and demoted — nothing false was reported, but the external tier
+was unreachable and every audit on such a machine ran on the subagent. The shim
+is now read for its Node entry point and that is spawned directly; an
+unresolvable shim is refused rather than routed through an interpreter.
 
 ### The memory-auditor subagent
 
@@ -827,8 +846,7 @@ than fail — `handoff.md` in particular tells the mode to omit `HEAD` and recor
 timestamp instead. That substitution is playbook instruction; no code produces a
 timestamp, and no clock is read anywhere in the codebase.
 
-`codex` and `gemini` are optional; without both, `audit` reaches tier three and
-says so. CI runs the suite on Windows and Ubuntu, and the split is load-bearing:
+`codex` is optional; without it, `audit` reaches the subagent tier and says so. CI runs the suite on Windows and Ubuntu, and the split is load-bearing:
 `node --test tests/` resolves the directory as an entry module and fails on
 Windows only, so the suite is run as bare `node --test`.
 

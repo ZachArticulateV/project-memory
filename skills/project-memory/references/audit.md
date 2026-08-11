@@ -75,13 +75,12 @@ The bridge selects a tier and reports which one actually produced the result in
 | `tier` | Evaluator | Independence |
 | --- | --- | --- |
 | `codex` | Codex CLI, sandboxed read-only | Different model architecture; read-only is enforced by the sandbox |
-| `gemini` | Gemini CLI | Different model architecture; output validated against the same schema |
 | `subagent` | Bundled `memory-auditor` subagent | Same architecture as the writer; read-only is enforced by its tool grant |
 
 Independence degrades down the list; the capability never disappears. The
 subagent tier is a Claude subagent auditing Claude's work, which is weaker
 evidence than the Codex tier and is worth saying out loud in the report rather
-than presenting all three as equivalent.
+than presenting the two as equivalent.
 
 `writes` is always `none`. The bridge has no path that edits anything.
 
