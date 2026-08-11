@@ -410,6 +410,58 @@ export function findSecrets(text) {
   return findings
 }
 
+export const REDACTION_MARKER = 'redacted credential'
+
+/**
+ * Replace credential-shaped substrings with a marker, leaving the rest intact.
+ *
+ * findSecrets answers "is there a secret here"; this answers "make this text
+ * safe to print". They need different inputs: findSecrets deliberately ignores
+ * placeholder-looking values, and this deliberately scans RAW text, because a
+ * credential inside a fenced block is still a credential once an evaluator
+ * quotes it back at us.
+ *
+ * The distinction matters at the audit boundary. If a secret reached memory,
+ * the evaluator reads it, and an evaluator that quotes it as `evidence` -- or a
+ * CLI that echoes the prompt into stderr on failure -- would carry it into
+ * terminal scrollback, CI logs, and caller telemetry. Masking the finding but
+ * not the surrounding report only moves the leak.
+ *
+ * For a name-bound credential the NAME is preserved and only the value is
+ * replaced, because "which variable leaked" is the actionable part.
+ */
+export function redactSecrets(text) {
+  if (typeof text !== 'string' || text === '') return text
+
+  let out = text
+  for (const pattern of SECRET_PATTERNS) {
+    // A fresh regex each time: the shared literals carry /g and therefore
+    // lastIndex, and a stateful matcher would skip hits on later calls.
+    const regex = new RegExp(pattern.regex.source, pattern.regex.flags)
+    out = out.replace(regex, (match, ...rest) => {
+      // replace() trails (offset, wholeString); no pattern here uses named groups.
+      const groups = rest.slice(0, -2)
+      const value = pattern.valueGroup ? groups[pattern.valueGroup - 1] : match
+      if (typeof value !== 'string' || value === '') return match
+      const marker = `[${REDACTION_MARKER}: ${pattern.id}, ${value.length} characters]`
+      return pattern.valueGroup ? match.replace(value, marker) : marker
+    })
+  }
+  return out
+}
+
+/** redactSecrets applied to every string in a JSON-shaped value. */
+export function redactDeep(value) {
+  if (typeof value === 'string') return redactSecrets(value)
+  if (Array.isArray(value)) return value.map(redactDeep)
+  if (value !== null && typeof value === 'object') {
+    const out = {}
+    for (const [key, child] of Object.entries(value)) out[key] = redactDeep(child)
+    return out
+  }
+  return value
+}
+
 // ---------------------------------------------------------------------------
 // Discovery
 // ---------------------------------------------------------------------------
