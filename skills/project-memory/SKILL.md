@@ -2,7 +2,7 @@
 name: project-memory
 description: Initialize, inspect, reconcile, hand off, audit, or repair a project's canonical memory under memory/. Use when the user runs /project-memory, asks to set up or bootstrap project memory, asks whether memory is current or has drifted, asks to sync or reconcile memory after implementation work, asks to write a handoff or prepare for /clear or a context reset, or asks to audit or repair memory against the actual repository. Do NOT use for ordinary coding, refactoring, debugging, test-writing, or code-review requests — writing code in a project that has memory is not a memory operation, and routine work must never trigger an audit.
 argument-hint: "[init|status|sync|handoff|audit|repair]"
-allowed-tools: Bash(${CLAUDE_SKILL_DIR}/../../scripts/project-state.mjs *), Bash(${CLAUDE_SKILL_DIR}/../../scripts/memory-validate.mjs *), Bash(${CLAUDE_SKILL_DIR}/../../scripts/auditor-bridge.mjs *)
+allowed-tools: Bash(node "${CLAUDE_SKILL_DIR}/../../scripts/project-state.mjs" *), Bash(node "${CLAUDE_SKILL_DIR}/../../scripts/memory-validate.mjs" *), Bash(node "${CLAUDE_SKILL_DIR}/../../scripts/auditor-bridge.mjs" *)
 ---
 
 # Project Memory

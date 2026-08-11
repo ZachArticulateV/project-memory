@@ -78,7 +78,7 @@ test('the audit playbook documents an invocation the bridge accepts', () => {
   const commands = [...auditPlaybook.matchAll(/auditor-bridge\.mjs([^\n`]*)/g)].map((m) => m[1])
   assert.ok(commands.length > 0, 'the playbook no longer shows how to run the bridge')
 
-  const known = new Set(['--json', '--cwd', '--tier', '--gemini-model', '--timeout', '--schema', '--observations', '--help'])
+  const known = new Set(['--json', '--cwd', '--tier', '--timeout', '--schema', '--observations', '--help'])
   for (const command of commands) {
     for (const flag of command.match(/--[a-z-]+/g) ?? []) {
       assert.ok(known.has(flag), `audit.md documents ${flag}, which the bridge does not accept`)
@@ -94,6 +94,74 @@ test('the repair playbook handles every classification the bridge validates', ()
       repairPlaybook.includes(`\`${classification}\``),
       `repair.md has no row for ${classification}, which the schema accepts`
     )
+  }
+})
+
+// ---------------------------------------------------------------------------
+// The pre-approval grant has to match the command it is meant to pre-approve
+//
+// Claude Code matches a Bash rule as a TEXTUAL PREFIX of the command string,
+// and `node` is not one of the wrappers it strips (that list is timeout, time,
+// nice, nohup, stdbuf, command, builtin, noglob, and bare xargs). So a grant of
+// `Bash(<path> *)` does not cover a command `node "<path>" --json`, and the
+// frontmatter promised a pre-approval that could never apply -- every script
+// call would have prompted. Nothing failed loudly; the skill just got more
+// friction than it advertised.
+// ---------------------------------------------------------------------------
+
+const skill = readFileSync(join(repoRoot, 'skills', 'project-memory', 'SKILL.md'), 'utf8')
+
+/** Every Bash(...) rule in the skill's allowed-tools line. */
+function allowedBashRules(source) {
+  const line = /^allowed-tools:\s*(.+)$/m.exec(source)
+  if (line === null) return []
+  return [...line[1].matchAll(/Bash\(([^)]*)\)/g)].map((m) => m[1].trim())
+}
+
+/** Every documented `node "..."` invocation across the skill and its references. */
+function documentedInvocations() {
+  const sources = [
+    ['SKILL.md', skill],
+    ...['audit.md', 'handoff.md', 'init.md', 'repair.md', 'status.md', 'sync.md'].map((n) => [n, reference(n)]),
+  ]
+  const found = []
+  for (const [name, body] of sources) {
+    for (const match of body.matchAll(/^node "(\$\{[^"]+)"(.*)$/gm)) {
+      found.push({ name, command: `node "${match[1]}"${match[2]}`.trim() })
+    }
+  }
+  return found
+}
+
+test('every documented script invocation is covered by an allowed-tools rule', () => {
+  const rules = allowedBashRules(skill)
+  assert.ok(rules.length > 0, 'the skill declares no Bash pre-approvals at all')
+
+  const invocations = documentedInvocations()
+  assert.ok(invocations.length > 0, 'no documented invocation was found, so this test proves nothing')
+
+  for (const { name, command } of invocations) {
+    const covered = rules.some((rule) => {
+      // Only the trailing-wildcard form is used here; match it the way Claude
+      // Code does, as a prefix with a word boundary.
+      if (!rule.endsWith(' *')) return command === rule
+      const prefix = rule.slice(0, -2)
+      return command === prefix || command.startsWith(`${prefix} `)
+    })
+    assert.ok(covered, `${name} documents \`${command}\`, which no allowed-tools rule covers`)
+  }
+})
+
+test('the allowed-tools rules use a variable Claude Code substitutes there', () => {
+  // Substitution inside allowed-tools covers ${CLAUDE_SKILL_DIR} and
+  // ${CLAUDE_PROJECT_DIR}. ${CLAUDE_PLUGIN_ROOT} is substituted in hooks, not
+  // here, so a rule written with it would stay a literal and match nothing.
+  for (const rule of allowedBashRules(skill)) {
+    assert.ok(
+      !rule.includes('${CLAUDE_PLUGIN_ROOT}'),
+      `allowed-tools rule uses \${CLAUDE_PLUGIN_ROOT}, which is not substituted there: ${rule}`
+    )
+    assert.match(rule, /\$\{CLAUDE_(SKILL_DIR|PROJECT_DIR)\}/, `rule has no substitutable root: ${rule}`)
   }
 })
 
