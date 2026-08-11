@@ -7,8 +7,8 @@
 //     in JSON output would make fixtures, hooks, and assertions platform-
 //     dependent for no gain; node:path still does all real path work.
 
-import { readFileSync, statSync, readdirSync } from 'node:fs'
-import { join, relative, sep } from 'node:path'
+import { readFileSync, realpathSync, statSync, readdirSync } from 'node:fs'
+import { isAbsolute, join, relative, sep } from 'node:path'
 
 /** Directories never worth walking for memory content. */
 const SKIP_DIRS = new Set(['.git', 'node_modules', '.next', 'dist', 'build', '.venv', '__pycache__'])
@@ -41,6 +41,57 @@ export function isDirectory(absPath) {
 export function isFile(absPath) {
   const s = statSafe(absPath)
   return s !== null && s.isFile()
+}
+
+// ---------------------------------------------------------------------------
+// Containment
+//
+// Every path this project derives is built by joining repository-relative
+// segments onto a root, which is a LEXICAL operation: it says nothing about
+// where the result actually lands. statSync and readFileSync follow symlinks,
+// so `memory/` as a junction, or `CLAUDE.md` as a link, reads a file the
+// repository does not contain.
+//
+// That is a disclosure bug rather than a tidiness one. The audit copies these
+// files into a prompt and sends them to an external model, so a cloned
+// repository could make the audit exfiltrate a local file. Verified by probe:
+// a symlinked CLAUDE.md put outside content into buildAuditPrompt's output, and
+// a junctioned memory/ put an entire outside directory there.
+// ---------------------------------------------------------------------------
+
+/** Fully-resolved path with symlinks followed, or null if it cannot be read. */
+export function realPathSafe(absPath) {
+  try {
+    return realpathSync(absPath)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * True when `absPath` really lands inside `root`.
+ *
+ * Both sides are resolved before comparison, because comparing a real path
+ * against a lexical root is the same mistake one level up. A path that does not
+ * exist is not contained: callers are asking "may I read this", and the honest
+ * answer for an unresolvable path is no.
+ *
+ * relative() compares case-insensitively on win32 and returns an absolute path
+ * across drives, so both Windows hazards are handled by the check below.
+ */
+export function containedBy(root, absPath) {
+  const realRoot = realPathSafe(root)
+  const realPath = realPathSafe(absPath)
+  if (realRoot === null || realPath === null) return false
+
+  const rel = relative(realRoot, realPath)
+  return rel === '' || (!rel.startsWith(`..${sep}`) && rel !== '..' && !isAbsolute(rel))
+}
+
+/** readTextSafe, but refuses a path that escapes `root` through a link. */
+export function readTextContained(root, absPath) {
+  if (!containedBy(root, absPath)) return null
+  return readTextSafe(absPath)
 }
 
 /** Convert a host path to the POSIX shape used in all emitted data. */

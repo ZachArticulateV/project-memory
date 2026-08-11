@@ -49,7 +49,15 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { isFile, listFiles, pathExists, readTextSafe, relPosix, toPosix } from './lib/fs-utils.mjs'
+import {
+  isFile,
+  listFiles,
+  pathExists,
+  readTextContained,
+  readTextSafe,
+  relPosix,
+  toPosix,
+} from './lib/fs-utils.mjs'
 import { CLAUDE_MD, MEMORY_DIRNAME, discoverMemory, redactDeep } from './lib/memory-model.mjs'
 import { USAGE_EXIT_CODE, emit, parseCliArgs } from './lib/report.mjs'
 
@@ -600,6 +608,33 @@ export function buildAuditPrompt(root, options = {}) {
   const absRoot = resolve(root)
   const memory = discoverMemory(absRoot)
 
+  // Read first, describe second.
+  //
+  // The head has to state which files were excluded, and the only way to know
+  // that for certain is to have tried. Building the head from
+  // `memory.escaped` alone missed CLAUDE.md, which discoverMemory does not
+  // inventory -- its content was correctly withheld, and the prompt then said
+  // nothing about it. A file absent with no explanation reads exactly like a
+  // file that was checked and passed, which is the failure mode this project
+  // exists to refuse.
+  const readable = []
+  const excluded = []
+  for (const rel of [...memory.markdownFiles, CLAUDE_MD]) {
+    const abs = join(absRoot, ...rel.split('/'))
+    const text = readTextContained(absRoot, abs)
+    if (text !== null) {
+      readable.push({ rel, text })
+      continue
+    }
+    // Distinguish "not there" from "there, but outside the repository". Only
+    // the second is worth reporting: readTextSafe succeeding where
+    // readTextContained refused is exactly the disclosure case.
+    if (readTextSafe(abs) !== null) excluded.push(rel)
+  }
+  for (const rel of memory.escaped) {
+    if (!excluded.includes(rel)) excluded.push(rel)
+  }
+
   const head = [
     `You are auditing the project memory committed to the repository at ${toPosix(absRoot)}.`,
     '',
@@ -632,16 +667,22 @@ export function buildAuditPrompt(root, options = {}) {
       ? `Memory files under audit (${memory.markdownFiles.length}):`
       : `There is no ${MEMORY_DIRNAME}/ directory in this repository.`,
     ...memory.markdownFiles.map((rel) => `  ${rel}`),
+    ...(excluded.length > 0
+      ? [
+          '',
+          'Excluded because they resolve outside this repository through a link',
+          '(their contents were NOT read and are NOT part of this audit):',
+          ...excluded.map((rel) => `  ${rel}`),
+        ]
+      : []),
     '',
   ]
 
   const sections = []
   let budget = maxPromptChars - head.join('\n').length
 
-  for (const rel of [...memory.markdownFiles, CLAUDE_MD]) {
+  for (const { rel, text } of readable) {
     if (budget <= 0) break
-    const text = readTextSafe(join(absRoot, ...rel.split('/')))
-    if (text === null) continue
     const clipped =
       text.length > maxFileChars
         ? `${text.slice(0, maxFileChars)}\n… [truncated: ${text.length - maxFileChars} more characters]\n`

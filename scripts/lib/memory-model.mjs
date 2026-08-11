@@ -9,6 +9,7 @@
 import { basename, extname } from 'node:path'
 
 import {
+  containedBy,
   countLines,
   fileFacts,
   isDirectory,
@@ -510,12 +511,29 @@ export function discoverMemory(root) {
 
   const handoffs = discoverHandoffs(root)
 
-  const markdownFiles = exists
-    ? listFiles(memoryAbs, { extension: '.md' }).map((abs) => relPosix(root, abs))
-    : []
+  // Containment is decided here, once, so the bridge, the validator and the
+  // state probe cannot disagree about which files are part of this repository.
+  //
+  // The check has to happen per FILE, not just on memory/ itself: a junctioned
+  // memory/ makes every path under it escape, and listing them as
+  // `memory/whatever.md` would otherwise hand the audit an outside directory
+  // under repository-looking names. Escapes are reported rather than dropped
+  // silently -- memory that vanished from an audit with no explanation is the
+  // silent degradation this project exists to refuse.
+  const discovered = exists ? listFiles(memoryAbs, { extension: '.md' }) : []
+  const markdownFiles = []
+  const escapedFiles = []
+  for (const abs of discovered) {
+    const rel = relPosix(root, abs)
+    if (containedBy(root, abs)) markdownFiles.push(rel)
+    else escapedFiles.push(rel)
+  }
+  if (exists && !containedBy(root, memoryAbs)) escapedFiles.unshift(`${MEMORY_DIRNAME}/`)
 
   return {
     exists,
+    /** Paths that look repository-relative but resolve outside it through a link. */
+    escaped: escapedFiles,
     dir: MEMORY_DIRNAME,
     core,
     optional,

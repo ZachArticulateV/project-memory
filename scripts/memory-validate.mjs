@@ -16,7 +16,7 @@
 import { fileURLToPath } from 'node:url'
 import { basename, resolve } from 'node:path'
 
-import { countLines, joinRel, readTextSafe, statSafe } from './lib/fs-utils.mjs'
+import { containedBy, countLines, joinRel, readTextSafe, statSafe } from './lib/fs-utils.mjs'
 import {
   ANY_PLACEHOLDER,
   CLAUDE_MD,
@@ -55,6 +55,7 @@ export const CHECKS = [
   'empty-section',
   'secret-pattern',
   'duplicate-task',
+  'escapes-repository',
 ]
 
 const finding = (check, severity, artifact, message, extra = {}) => ({
@@ -84,10 +85,37 @@ export function validateMemory(root) {
     return result
   }
 
+  // A memory path that resolves outside the repository is an error in its own
+  // right, not merely a file to skip. The audit sends these contents to an
+  // external model, so a link pointing out of the checkout is a disclosure
+  // route; reporting it is what lets someone notice before that happens.
+  for (const rel of memory.escaped) {
+    findings.push(
+      finding(
+        'escapes-repository',
+        'error',
+        rel,
+        'Resolves outside the repository through a symlink or junction. Its contents are ' +
+          'excluded from validation and from the audit prompt.'
+      )
+    )
+  }
+
   // CLAUDE.md is in scope: it carries a rendered template section, so it can
   // hold an unresolved token or a broken memory path just as easily.
   const scanned = [...memory.markdownFiles]
-  if (claudePresent) scanned.push(CLAUDE_MD)
+  if (claudePresent && containedBy(absRoot, claudeAbs)) scanned.push(CLAUDE_MD)
+  else if (claudePresent) {
+    findings.push(
+      finding(
+        'escapes-repository',
+        'error',
+        CLAUDE_MD,
+        'Resolves outside the repository through a symlink. Its contents are excluded from ' +
+          'validation and from the audit prompt.'
+      )
+    )
+  }
 
   for (const rel of scanned) {
     const text = readTextSafe(joinRel(absRoot, rel))
