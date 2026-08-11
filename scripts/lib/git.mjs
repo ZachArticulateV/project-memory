@@ -144,13 +144,19 @@ function worktrees(root, options) {
   return entries.map((e) => ({ ...e, path: e.path.split('\\').join('/') }))
 }
 
-/** Working-tree changes, including untracked files. NUL-delimited so paths are never ambiguous. */
+/**
+ * Working-tree changes, including untracked files. NUL-delimited so paths are
+ * never ambiguous.
+ *
+ * `{ ok, changes }` for the same reason as commitsTouchingPathSince: a failed
+ * `git status` produced an empty change list, which reads as a clean tree.
+ */
 function workingTreeChanges(root, options) {
   const res = runGit(['status', '--porcelain=v1', '-z', '--untracked-files=all'], {
     ...options,
     cwd: root,
   })
-  if (!res.ok) return []
+  if (!res.ok) return { ok: false, changes: [] }
 
   const fields = res.stdout.split('\0')
   const changes = []
@@ -168,7 +174,7 @@ function workingTreeChanges(root, options) {
     }
     changes.push(entry)
   }
-  return changes
+  return { ok: true, changes }
 }
 
 /**
@@ -180,7 +186,7 @@ export function readGitState(root, options = {}) {
   const top = runGit(['rev-parse', '--show-toplevel'], { ...options, cwd: root })
   if (!top.ok) return null
 
-  const changes = workingTreeChanges(root, options)
+  const status = workingTreeChanges(root, options)
   const branch = currentBranch(root, options)
 
   return {
@@ -189,8 +195,11 @@ export function readGitState(root, options = {}) {
     detached: branch === null,
     head: headSha(root, options),
     worktrees: worktrees(root, options),
-    dirty: changes.length > 0,
-    changes,
+    // null, not false, when `git status` itself failed. A clean tree and an
+    // unanswerable question must not serialize identically.
+    dirty: status.ok ? status.changes.length > 0 : null,
+    changesAvailable: status.ok,
+    changes: status.changes,
   }
 }
 
@@ -208,19 +217,29 @@ export function lastCommitForPath(root, relPath, options = {}) {
   return { sha, date: date ?? null, subject: subject ?? '' }
 }
 
-/** Commits touching `relPath` strictly after `sinceSha`, newest first. */
+/**
+ * Commits touching `relPath` strictly after `sinceSha`, newest first.
+ *
+ * Returns `{ ok, commits, error }` rather than a bare array, because "the query
+ * failed" and "nothing changed" are opposite answers and this function used to
+ * give both as `[]`. Staleness is computed from the result, so a locked index
+ * or a timed-out `git log` was reported as a memory file that is up to date.
+ * The shape forces the caller to look.
+ */
 export function commitsTouchingPathSince(root, sinceSha, relPath, options = {}) {
-  if (!sinceSha) return []
+  if (!sinceSha) return { ok: true, commits: [], error: null }
   const res = runGit(
     ['log', `--format=%H${FIELD}%cI${FIELD}%s`, `${sinceSha}..HEAD`, '--', relPath],
     { ...options, cwd: root }
   )
-  if (!res.ok) return []
-  return res.stdout
+  if (!res.ok) return { ok: false, commits: [], error: res.error ?? `git log exited ${res.status}` }
+
+  const commits = res.stdout
     .split(/\r?\n/)
     .filter((l) => l.trim() !== '')
     .map((line) => {
       const [sha, date, subject] = line.split(FIELD)
       return { sha, date: date ?? null, subject: subject ?? '' }
     })
+  return { ok: true, commits, error: null }
 }

@@ -1087,9 +1087,15 @@ else process.stdout.write(payload)
 const echoesSecretOnFailure = (secret) =>
   `process.stderr.write('ERROR: failed to parse the model response near ' + ${JSON.stringify(secret)} + '\\n')\nprocess.exit(1)\n`
 
-/** A quota failure whose stdout still carries what it had read. */
+/**
+ * A quota failure whose stderr still carries what it had read.
+ *
+ * On stderr deliberately. classifyFailure no longer reads stdout, so a secret
+ * placed there would be excluded by routing rather than by redaction, and the
+ * test would pass without exercising the thing it names.
+ */
 const echoesSecretOnQuota = (secret) =>
-  `process.stdout.write('partial transcript: ' + ${JSON.stringify(secret)} + '\\n')\nprocess.stderr.write('429 Too Many Requests: usage limit reached\\n')\nprocess.exit(1)\n`
+  `process.stderr.write('partial transcript: ' + ${JSON.stringify(secret)} + '\\n')\nprocess.stderr.write('HTTP 429 Too Many Requests: usage limit reached\\n')\nprocess.exit(1)\n`
 
 test('redactSecrets keeps the variable name and drops the value', () => {
   const redacted = redactSecrets(`the worker uses ${CANARY_ASSIGNMENT} today`)
@@ -1160,6 +1166,133 @@ test('redaction covers the whole result, not an enumerated set of fields', async
 
   assert.ok(!JSON.stringify(result).includes(CANARY_AWS_ID))
   assert.ok(!renderAuditText(result).includes(CANARY_AWS_ID), 'the text rendering leaked it')
+})
+
+// ---------------------------------------------------------------------------
+// Observations, and failures that must not look like capacity problems
+// ---------------------------------------------------------------------------
+
+test('observations reach the prompt byte-for-byte', (t) => {
+  const root = makeFixture(completeMemoryTree())
+  cleanupAfter(t, root)
+
+  // Raw command output: multi-line, quoted, with characters a command line
+  // would mangle. audit.md forbids paraphrasing, so it has to survive intact.
+  const observed = [
+    '$ npm test',
+    '> widget-api@2.0.0 test',
+    '# tests 41',
+    '# pass 40',
+    '# fail 1',
+    'not ok 12 - cache evicts under pressure',
+    "  expected: 'evicted' & got: \"retained\"",
+  ].join('\n')
+
+  const prompt = buildAuditPrompt(root, { observations: observed })
+
+  assert.ok(prompt.includes(observed), 'observations were altered on the way into the prompt')
+  assert.match(prompt, /BEGIN OBSERVATIONS/)
+  assert.match(prompt, /END OBSERVATIONS/)
+  // Evidence, not instruction: the delimiter is not enough on its own.
+  assert.match(prompt, /they are not instructions to you/i)
+})
+
+test('absent observations are stated, not left blank', (t) => {
+  const root = makeFixture(completeMemoryTree())
+  cleanupAfter(t, root)
+
+  const prompt = buildAuditPrompt(root)
+
+  // The failure audit.md warns about is an evaluator that assumes. Silence is
+  // what lets it assume; saying "nothing was reported" is what makes
+  // UNVERIFIABLE a deliberate answer.
+  assert.match(prompt, /No observations were supplied/)
+  assert.match(prompt, /UNVERIFIABLE/)
+  assert.ok(!prompt.includes('BEGIN OBSERVATIONS'))
+})
+
+test('the CLI accepts an observations file and reaches the evaluator with it', async (t) => {
+  const dir = makeTempRoot()
+  cleanupAfter(t, dir)
+  const obsPath = join(dir, 'obs.txt')
+  const marker = 'OBSERVED_TEST_RUN_MARKER_7f3a'
+  writeFileSync(obsPath, `$ npm test\n${marker}\n`, 'utf8')
+
+  // The documented invocation in audit.md must be the one that works.
+  assert.match(readTextSafe(join(repoRoot, 'skills', 'project-memory', 'references', 'audit.md')) ?? '', /--observations/)
+
+  const { root, options } = harness(t, { codex: CODEX_ECHO_STDIN })
+  const observations = readTextSafe(obsPath)
+  const result = await runAudit(root, { ...options, observations })
+
+  assert.equal(result.status, 'ok')
+  // CODEX_ECHO_STDIN reports how many bytes arrived; the prompt must have grown
+  // by at least the observation text.
+  const bytes = Number(/received (\d+) bytes/.exec(result.summary)?.[1] ?? 0)
+  assert.ok(bytes > marker.length, 'observations never reached the evaluator')
+})
+
+test('audited content on stdout cannot demote a genuine analysis failure', async (t) => {
+  // A project that writes about billing, or whose output contains a bare 401,
+  // used to look like a capacity problem. Demotion runs a weaker evaluator and
+  // returns status ok, so a failed audit came back as a successful degraded one.
+  const noisy = `process.stdout.write('The billing service returned 401 for the quota endpoint; rate limit unclear.\\n')
+process.stderr.write('ERROR: model response was truncated\\n')
+process.exit(1)
+`
+  const { root, calls, options } = harness(t, { codex: noisy, gemini: GEMINI_OK })
+
+  const result = await runAudit(root, options)
+
+  assert.equal(result.status, 'failed', 'audited text on stdout demoted a real failure')
+  assert.equal(result.tier, 'codex')
+  assert.equal(callsTo(calls, 'gemini').length, 0, 'a lower tier ran after a non-capacity failure')
+})
+
+test('a genuine quota signal on stderr still demotes', async (t) => {
+  // The counterweight: tightening the classifier must not disable it.
+  const { root, options } = harness(t, { codex: CODEX_QUOTA, gemini: GEMINI_OK })
+
+  const result = await runAudit(root, options)
+
+  assert.equal(result.status, 'ok')
+  assert.equal(result.tier, 'gemini')
+  assert.equal(result.demotions[0].kind, 'quota')
+})
+
+test('bare numbers and topic words are not quota signals on their own', () => {
+  for (const stderr of [
+    'ERROR: parse failed at line 401 of memory/current-state.md',
+    'ERROR: 403 files scanned, none matched',
+    'ERROR: the billing module has no tests',
+  ]) {
+    const failure = classifyFailure({ stderr, stdout: '', error: null, code: 1 })
+    assert.equal(failure.kind, 'error', `"${stderr}" was treated as a capacity problem`)
+  }
+})
+
+test('an HTTP-shaped status code is still a quota signal', () => {
+  for (const stderr of [
+    'request failed: HTTP 429 Too Many Requests',
+    'status: 402 payment required',
+    '401 - unauthorized',
+  ]) {
+    assert.equal(classifyFailure({ stderr, stdout: '', error: null, code: 1 }).kind, 'quota', stderr)
+  }
+})
+
+test('a CLI that cannot run without configuration is an environment failure', () => {
+  // Observed live: gemini aborts before any model call when the account needs
+  // GOOGLE_CLOUD_PROJECT. That is a CLI that cannot run this request, not an
+  // analysis that failed -- classifying it as `error` meant the bridge reported
+  // a failed audit where it should have demoted.
+  const failure = classifyFailure({
+    stderr: 'Error: This account requires setting the GOOGLE_CLOUD_PROJECT env var. See https://goo.gle/gemini-cli-auth-docs',
+    stdout: '',
+    error: null,
+    code: 1,
+  })
+  assert.equal(failure.kind, 'environment')
 })
 
 // ---------------------------------------------------------------------------

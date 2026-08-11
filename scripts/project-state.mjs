@@ -109,6 +109,9 @@ function computeStaleness(root, git, memory, options) {
 
   // Untracked and modified paths, as a set, so working-tree evidence is a lookup.
   const dirtyPaths = new Set(git.changes.flatMap((c) => (c.from ? [c.path, c.from] : [c.path])))
+  // When `git status` failed there are no working-tree facts, only an empty
+  // list that looks exactly like a clean tree.
+  const workingTreeKnown = git.changesAvailable !== false
 
   const files = []
   const unchecked = []
@@ -144,18 +147,45 @@ function computeStaleness(root, git, memory, options) {
     }
 
     const changes = []
+    const uncheckedRefs = []
     for (const ref of uniqueRefs) {
-      const commits = commitsTouchingPathSince(root, lastCommit.sha, ref, options)
-      const workingTree = dirtyPaths.has(ref)
-      if (commits.length > 0 || workingTree) changes.push({ path: ref, commits, workingTree })
+      const history = commitsTouchingPathSince(root, lastCommit.sha, ref, options)
+      if (!history.ok) {
+        // A failed `git log` is not "no commits touched this". Recording it as
+        // an unchecked reference is what stops a locked index or a timeout from
+        // being reported as a memory file that is up to date.
+        uncheckedRefs.push({ path: ref, reason: `change history unavailable: ${history.error}` })
+        continue
+      }
+      const workingTree = workingTreeKnown && dirtyPaths.has(ref)
+      if (history.commits.length > 0 || workingTree) {
+        changes.push({ path: ref, commits: history.commits, workingTree })
+      }
+    }
+
+    const stale = changes.length > 0
+
+    // A positive detection still stands even if some other reference could not
+    // be checked -- stale is stale. But "no changes found" is only meaningful
+    // when every reference was actually checkable.
+    if (!stale && (uncheckedRefs.length > 0 || !workingTreeKnown)) {
+      unchecked.push({
+        path: memoryPath,
+        reason: !workingTreeKnown
+          ? 'git status failed: uncommitted changes could not be checked'
+          : uncheckedRefs[0].reason,
+        references: uncheckedRefs.map((r) => r.path),
+      })
+      continue
     }
 
     files.push({
       path: memoryPath,
       lastCommit,
       references: uniqueRefs,
-      stale: changes.length > 0,
+      stale,
       changes,
+      uncheckedRefs,
     })
   }
 

@@ -41,23 +41,33 @@ Before invoking the bridge, gather:
   the command and its output
 - runtime or deployment evidence you have in hand
 
-Pass those in as observations. Do not paraphrase a command's output into a
-summary and hand over the summary — an auditor checking a claim against your
-paraphrase of the evidence is checking two claims and can only see one.
+Write those to a file and pass it with `--observations`. Do not paraphrase a
+command's output into a summary and hand over the summary — an auditor checking
+a claim against your paraphrase of the evidence is checking two claims and can
+only see one. The file is copied into the prompt verbatim, inside a delimited
+block, and labelled as evidence rather than as instruction.
 
 If you did not run the tests, say so. An auditor told nothing about test results
 records `UNVERIFIABLE`, which is correct. An auditor told "tests pass" when
 nobody ran them has been handed the exact failure it was convened to catch.
+Omitting `--observations` is a way of saying so: the evaluator is then told
+explicitly that no outside evidence was supplied and that it must not assume
+any.
 
 ## 2. Run the bridge
 
 ```bash
-node "${CLAUDE_SKILL_DIR}/../../scripts/auditor-bridge.mjs" --json
+node "${CLAUDE_SKILL_DIR}/../../scripts/auditor-bridge.mjs" --json --observations obs.txt
 ```
 
 Pass `--json`. The bridge prints a human report by default, and this mode needs
 the structured envelope. Add `--cwd <dir>` when auditing somewhere other than the
-current working directory.
+current working directory. Drop `--observations` when you gathered nothing, or
+pass `-` to pipe the evidence in on stdin.
+
+Observations go through a file rather than an argument because they carry raw
+command output — multi-line, quote-bearing text that has no business on a
+command line.
 
 The bridge selects a tier and reports which one actually produced the result in
 `tier`:

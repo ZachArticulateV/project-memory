@@ -168,8 +168,18 @@ verdict.
 Memory-to-memory references are checked for breakage but excluded from
 staleness, or editing a handoff would make `INDEX.md` look stale on every sync.
 
+**A Git query that fails is not a query that found nothing.** Both halves of the
+staleness check used to collapse a failure into an empty list, which is
+byte-identical to "nothing changed" — so a locked index or a timed-out `git log`
+produced a memory file reported as checked and current. `git status` failing now
+yields `git.dirty: null` and `git.changesAvailable: false` rather than a clean
+tree, and a file whose references could not all be checked moves to
+`staleness.unchecked` instead of being counted current. A positive staleness
+detection still stands when some other reference was uncheckable: stale is
+stale, and only *absence* of change needs every reference to have been readable.
+
 **`scripts/memory-validate.mjs`** — the structural validator. Exits 1 only when
-a finding has `error` severity; warnings and notes never gate. It declares eight
+a finding has `error` severity; warnings and notes never gate. It declares nine
 checks:
 
 | Check | Severity | Fires on |
@@ -182,16 +192,24 @@ checks:
 | `empty-section` | error | A required section is absent or empty |
 | `secret-pattern` | error | A value-shaped credential appears in memory |
 | `duplicate-task` | warning | `next-actions.md` lists the same action twice |
+| `escapes-repository` | error | A memory path or `CLAUDE.md` resolves outside the checkout through a link |
 
 Two further codes can appear that the declared list does not name:
 `memory-missing` (info, when there is no tree to validate) and `unreadable-file`
 (error).
 
+Both files the writing rule claims are scanned — the repository-root `CLAUDE.md`
+and `.claude/CLAUDE.md`. The hook's scope is the same list, so a file cannot be
+accepted as in-scope for an edit and then go unvalidated.
+
 Secret findings are error severity even though a leaked credential is not a
-structural fault, because exiting 0 on one would be indefensible in CI. Eight
-patterns are matched, and **a finding never echoes the value it found** — the
-excerpt is a four-character prefix of the match plus its length, so a detection
-cannot re-leak the credential into logs or CI output.
+structural fault, because exiting 0 on one would be indefensible in CI. Ten
+patterns are matched against **raw** text — fenced blocks and HTML comments
+included, because those are where credentials actually get pasted — and
+overlapping matches on one value report once, so the count reflects secrets
+rather than patterns. **A finding never echoes the value it found**: the excerpt
+is a four-character prefix plus a length, so a detection cannot re-leak the
+credential into logs or CI output.
 
 **`scripts/lib/`** — `git.mjs` (every call an `execFileSync` with an array argv,
 never a shell string; every function degrades to a valid result instead of
