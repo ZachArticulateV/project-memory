@@ -73,7 +73,12 @@ export const INJECTED_STRINGS = [
 // in source while the value written to disk at test time is byte-for-byte what
 // the detector must catch.
 const STRIPE_LIVE = ['sk', 'live', '51QaBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefXX'].join('_')
-const AWS_KEY_ID = 'AKIA' + 'QYLPZ7' + 'EXAMPLE99'
+// Exactly 20 characters: AKIA plus sixteen, which is what a real access key id
+// is. The earlier value here was nineteen, so it did not match the detector and
+// an external review read that as a hole in the scanner. The scanner was right;
+// the fixture was not a key id. A fixture that cannot be detected proves nothing
+// about detection.
+const AWS_KEY_ID = 'AKIA' + 'QYLPZ7EXAMPLE999'
 const DB_PASSWORD = 'hunter2' + 'correct'
 const ADMIN_PASSWORD = 'Tr0ub4dor' + '&3'
 const SESSION_VALUE = 's%3A' + 'abcdefghijklmnopqrstuvwxyzABCDEF' + '.fakeSignatureValue'
@@ -108,6 +113,13 @@ export function secretsRepo({ git = true } = {}) {
 
 /** Values that must never appear in memory. Order is depended on by tests. */
 export const SECRET_VALUES = [DB_PASSWORD, STRIPE_LIVE, AWS_KEY_ID, ADMIN_PASSWORD]
+
+/**
+ * Exported separately rather than appended to SECRET_VALUES, whose order tests
+ * index into. The session cookie is the fifth credential this fixture writes and
+ * was the one a review found passing validation untouched.
+ */
+export const SESSION_COOKIE_VALUE = SESSION_VALUE
 
 /** Names that are safe -- and useful -- to record. */
 export const SECRET_NAMES = [

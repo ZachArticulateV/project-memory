@@ -479,6 +479,46 @@ test('validation hook fires for CLAUDE.md and for a nested .claude/CLAUDE.md', (
   }
 })
 
+test('a nested .claude/CLAUDE.md is validated, not merely accepted', () => {
+  // The version of this test that shipped asserted only that a duplicate
+  // decision id -- planted in a DIFFERENT file -- came back. That proves the
+  // hook fired; it says nothing about whether the edited file was read. An
+  // external review pointed out that `.claude/CLAUDE.md` was in scope for the
+  // hook and the writing rule while the validator scanned only the root file,
+  // so an unresolved placeholder or a leaked credential there was never seen.
+  //
+  // The defect here lives ONLY in the nested file, so the assertion can fail.
+  const secret = `PAYMENTS_API_KEY=${['9f3a7b1c', '5d2e84a6', 'b0c1d7e2'].join('')}`
+  const root = makeFixture({
+    ...completeMemoryTree(),
+    '.claude/CLAUDE.md': `# Project\n\nThe worker reads ${secret} at boot.\n`,
+  })
+  cleanupAfter(test, root)
+
+  const context = contextOf(runHook(VALIDATE_HOOK, editPayload(root, join(root, '.claude', 'CLAUDE.md'))).stdout)
+
+  assert.notEqual(context, null, 'editing .claude/CLAUDE.md produced no validation at all')
+  assert.match(context, /secret-pattern/, 'the nested file was accepted as in scope but never scanned')
+  assert.match(context, /\.claude\/CLAUDE\.md/)
+  // The advisory must not reprint what it found.
+  assert.ok(!context.includes('9f3a7b1c5d2e84a6b0c1d7e2'), 'the hook echoed the credential it found')
+})
+
+test('a CLAUDE.md this system does not govern is out of scope', () => {
+  // Scope used to be "any file named CLAUDE.md, at any depth", matched by
+  // basename. A vendored one would trigger a validation run reporting findings
+  // from elsewhere in the tree, about a file nothing here governs.
+  const root = makeFixture({ ...duplicateDecisionIdTree(), 'vendor/lib/CLAUDE.md': claudeMd(20) })
+  cleanupAfter(test, root)
+
+  const { status, stdout } = runHook(
+    VALIDATE_HOOK,
+    editPayload(root, join(root, 'vendor', 'lib', 'CLAUDE.md'))
+  )
+  assert.equal(status, 0)
+  assert.equal(stdout, '', 'an ungoverned CLAUDE.md triggered a validation report')
+})
+
 test('validation hook stays silent on a structurally sound tree', () => {
   const root = makeFixture(completeMemoryTree())
   cleanupAfter(test, root)

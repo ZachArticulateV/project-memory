@@ -27,6 +27,19 @@ import {
 
 export const MEMORY_DIRNAME = 'memory'
 export const CLAUDE_MD = 'CLAUDE.md'
+export const NESTED_CLAUDE_MD = '.claude/CLAUDE.md'
+
+/**
+ * Every CLAUDE.md this system claims responsibility for.
+ *
+ * One list, because three places used to disagree. rules/memory-writing.md
+ * declares `CLAUDE.md` and `.claude/CLAUDE.md`; the validator scanned only the
+ * root one; the hook accepted a `CLAUDE.md` at ANY depth by basename. So an
+ * edit to `.claude/CLAUDE.md` was reported in scope and then never scanned, and
+ * an edit to `vendor/thing/CLAUDE.md` triggered a validation run about a file
+ * nothing in this system governs.
+ */
+export const CLAUDE_MD_SCOPE = [CLAUDE_MD, NESTED_CLAUDE_MD]
 export const DECISIONS_DIRNAME = 'decisions'
 export const HANDOFF_FILENAME = 'handoff.md'
 export const HANDOFFS_DIRNAME = 'handoffs'
@@ -379,8 +392,36 @@ export const SECRET_PATTERNS = [
     // The name must END in a credential word and be followed by an assignment
     // and a long opaque value. This is what separates a recorded name from a
     // recorded secret.
+    //
+    // COOKIE, SESSION, DSN and PASSPHRASE were added after a review found the
+    // hostile fixture's own SESSION_COOKIE passing validation. KEY_ID is here
+    // for AWS_ACCESS_KEY_ID, whose name ends in ID rather than in KEY.
+    //
+    // URL is deliberately NOT in this list. Adding it would flag every
+    // REDIS_URL=redis://localhost:6379, and a URL that really does carry a
+    // credential is caught precisely by uri-userinfo below.
     regex:
-      /(?<![A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|PWD|CREDENTIAL|CREDENTIALS))\s*[:=]\s*["']?([^\s"'`]{20,})["']?/gi,
+      /(?<![A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_]*(?:KEY|KEY_ID|TOKEN|SECRET|PASSWORD|PASSWD|PWD|PASSPHRASE|CREDENTIAL|CREDENTIALS|COOKIE|SESSION|DSN))\s*[:=]\s*["']?([^\s"'`]{20,})["']?/gi,
+    valueGroup: 2,
+  },
+  {
+    id: 'uri-userinfo',
+    label: 'connection string carrying a password',
+    // `scheme://user:password@host`. The trailing `@` is what makes this safe:
+    // without it, every `https://example.com:8080/path` would match on the port.
+    regex: /\b[a-z][a-z0-9+.-]*:\/\/[^\s:/?#@]+:([^\s@/]{3,})@/gi,
+    valueGroup: 1,
+  },
+  {
+    id: 'quoted-credential-field',
+    label: 'credential-named field bound to a quoted value',
+    // JSON and YAML put the name in quotes, which breaks the bare-assignment
+    // rule above: `"adminPassword": "…"` has a quote between the name and the
+    // colon. Quoting is also evidence that this is a value rather than prose,
+    // so a shorter minimum is defensible here than for a bare assignment --
+    // real passwords are routinely under twenty characters.
+    regex:
+      /["']?\b([A-Za-z_][A-Za-z0-9_]*(?:KEY|KEY_ID|TOKEN|SECRET|PASSWORD|PASSWD|PWD|PASSPHRASE|CREDENTIAL|CREDENTIALS|COOKIE|SESSION|DSN))["']?\s*[:=]\s*["']([^"'\s]{6,})["']/gi,
     valueGroup: 2,
   },
 ]
@@ -390,18 +431,41 @@ const NON_SECRET_VALUE =
   /^(\{\{|<|x{3,}$|\*{3,}$|redacted|placeholder|example|your[_-]|https?:\/\/|\.{3})/i
 
 export function findSecrets(text) {
-  const prose = maskNonProse(text)
+  // RAW text, not maskNonProse.
+  //
+  // Masking exists so that reference and placeholder checks ignore code
+  // samples, and applying it here was a copy of that habit rather than a
+  // decision. A fenced `.env` block and an HTML comment are two of the most
+  // common places a credential is pasted -- safety.md's own worked example puts
+  // one inside a fence -- so masking them turned the backstop off exactly where
+  // it was needed. The NON_SECRET_VALUE exemptions below, not the fence, are
+  // what keep documented examples from being reported.
   const findings = []
+  // One secret, one finding. The patterns overlap by design -- a quoted
+  // `STRIPE_SECRET_KEY` satisfies the bare-assignment rule and the quoted-field
+  // rule, and a real AWS id satisfies its provider pattern and the assignment
+  // rule -- and reporting the same value twice inflates the count someone uses
+  // to judge severity. Provider-specific patterns are declared first, so the
+  // more informative label is the one that survives.
+  const claimed = []
+  const overlaps = (start, end) => claimed.some(([s, e]) => start < e && s < end)
+
   for (const pattern of SECRET_PATTERNS) {
     pattern.regex.lastIndex = 0
     let match
-    while ((match = pattern.regex.exec(prose)) !== null) {
+    while ((match = pattern.regex.exec(text)) !== null) {
       const value = pattern.valueGroup ? match[pattern.valueGroup] : match[0]
       if (NON_SECRET_VALUE.test(value)) continue
+
+      const start = match.index + match[0].indexOf(value)
+      const end = start + value.length
+      if (overlaps(start, end)) continue
+      claimed.push([start, end])
+
       findings.push({
         patternId: pattern.id,
         label: pattern.label,
-        line: lineOf(prose, match.index),
+        line: lineOf(text, match.index),
         // Never echo the value. A validator that prints the secret it found
         // has moved the secret into logs and terminal scrollback.
         excerpt: `${match[0].slice(0, 4)}… (${match[0].length} characters)`,

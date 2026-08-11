@@ -9,6 +9,7 @@ import {
   INJECTED_STRINGS,
   SECRET_NAMES,
   SECRET_VALUES,
+  SESSION_COOKIE_VALUE,
   externalTrackerRepo,
   injectionRepo,
   secretsRepo
@@ -74,9 +75,13 @@ test('secrets fixture carries values in the files init actually reads', () => {
   const root = secretsRepo({ git: gitAvailable() })
   cleanupAfter(test, root)
 
+  // Read from the exported constants rather than from copies. A literal here
+  // drifted from the fixture once already: it spelled a 19-character "AWS key
+  // id", which is not the shape of one, and the detector correctly ignored it.
   const env = readFileSync(join(root, '.env'), 'utf8')
-  for (const value of ['hunter2correct', 'AKIAQYLPZ7EXAMPLE99']) {
-    assert.ok(env.includes(value), `secrets fixture is missing ${value}`)
+  for (const value of SECRET_VALUES) {
+    if (value === SECRET_VALUES[3]) continue // adminPassword lives in config/local.json
+    assert.ok(env.includes(value), `secrets fixture is missing ${value.slice(0, 4)}…`)
   }
   // The example file must stay value-free, or a passing test could be passing
   // because there was nothing to leak.
@@ -104,6 +109,111 @@ test('the validator flags a secret value that reached memory', () => {
   const result = validateMemory(root)
   const secretFindings = result.findings.filter((f) => /secret/i.test(f.check ?? ''))
   assert.ok(secretFindings.length > 0, 'validator did not flag a leaked key')
+})
+
+// Every credential the hostile fixture creates, in the shape it creates it.
+//
+// An external review ran findSecrets over these and got [] for four of the five
+// — the fixture manufactured exactly the leaks the validator was blind to, and
+// no test connected the two. Driving the table from the fixture's own exports
+// is what stops that from recurring: adding a value there without teaching the
+// scanner about it now fails here.
+const CREDENTIAL_SHAPES = [
+  {
+    label: 'connection string with userinfo',
+    line: () => `DATABASE_URL=postgres://svc_user:${SECRET_VALUES[0]}@db.internal:5432/billing`,
+    value: () => SECRET_VALUES[0],
+  },
+  {
+    label: 'provider key bound to a name',
+    line: () => `STRIPE_SECRET_KEY=${SECRET_VALUES[1]}`,
+    value: () => SECRET_VALUES[1],
+  },
+  {
+    label: 'AWS access key id',
+    line: () => `AWS_ACCESS_KEY_ID=${SECRET_VALUES[2]}`,
+    value: () => SECRET_VALUES[2],
+  },
+  {
+    label: 'short password in a JSON field',
+    line: () => `  "adminPassword": "${SECRET_VALUES[3]}"`,
+    value: () => SECRET_VALUES[3],
+  },
+  {
+    label: 'session cookie',
+    line: () => `SESSION_COOKIE=${SESSION_COOKIE_VALUE}`,
+    value: () => SESSION_COOKIE_VALUE,
+  },
+]
+
+for (const shape of CREDENTIAL_SHAPES) {
+  test(`the validator flags a ${shape.label} that reached memory`, () => {
+    const root = makeFixture({
+      'memory/current-state.md': [
+        '# Current State',
+        '',
+        '## Billing',
+        '',
+        '### Current reality',
+        '',
+        shape.line(),
+        '',
+      ].join('\n'),
+    })
+    cleanupAfter(test, root)
+
+    const result = validateMemory(root)
+    const secretFindings = result.findings.filter((f) => f.check === 'secret-pattern')
+
+    assert.ok(secretFindings.length > 0, `${shape.label} passed validation`)
+    // One secret, one finding: the patterns overlap and a double report inflates
+    // the count someone uses to judge how bad the leak is.
+    assert.equal(secretFindings.length, 1, `${shape.label} was reported more than once`)
+    assert.ok(
+      !JSON.stringify(result).includes(shape.value()),
+      `${shape.label} was echoed back by its own finding`
+    )
+  })
+}
+
+test('a credential inside a fenced block or an HTML comment is still found', () => {
+  // findSecrets used to run on maskNonProse(text), which blanks both. A fenced
+  // `.env` sample and a commented-out line are two of the most common places a
+  // credential is pasted -- safety.md's own worked example uses a fence -- so
+  // the backstop was off exactly where it was needed.
+  for (const [label, body] of [
+    ['fenced block', '```env\nSTRIPE_SECRET_KEY=' + SECRET_VALUES[1] + '\n```'],
+    ['HTML comment', '<!-- STRIPE_SECRET_KEY=' + SECRET_VALUES[1] + ' -->'],
+  ]) {
+    const root = makeFixture({
+      'memory/current-state.md': ['# Current State', '', '## Billing', '', '### Current reality', '', body, ''].join('\n'),
+    })
+    cleanupAfter(test, root)
+
+    const findings = validateMemory(root).findings.filter((f) => f.check === 'secret-pattern')
+    assert.ok(findings.length > 0, `a credential in a ${label} passed validation`)
+  }
+})
+
+test('ordinary configuration prose is not reported as a credential', () => {
+  // The counterweight. A scanner that fires on a plain service URL or a
+  // documented placeholder gets muted, and a muted scanner protects nothing.
+  const benign = [
+    'REDIS_URL=redis://localhost:6379',
+    'See https://example.com:8080/docs for the schema.',
+    'API_KEY={{api_key}}',
+    'Set STRIPE_SECRET_KEY in the deploy environment.',
+    'AWS_ACCESS_KEY_ID=',
+    'password: "example"',
+    'TOKEN_TTL=3600',
+  ]
+  const root = makeFixture({
+    'memory/current-state.md': ['# Current State', '', '## Config', '', '### Current reality', '', ...benign, ''].join('\n'),
+  })
+  cleanupAfter(test, root)
+
+  const findings = validateMemory(root).findings.filter((f) => f.check === 'secret-pattern')
+  assert.deepEqual(findings.map((f) => f.line), [], 'benign configuration prose was flagged')
 })
 
 test('the validator does not flag a bare variable name', () => {

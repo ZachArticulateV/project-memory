@@ -19,8 +19,8 @@ import { basename, resolve } from 'node:path'
 import { containedBy, countLines, joinRel, readTextSafe, statSafe } from './lib/fs-utils.mjs'
 import {
   ANY_PLACEHOLDER,
-  CLAUDE_MD,
   CLAUDE_MD_LINE_SIGNAL,
+  CLAUDE_MD_SCOPE,
   MEMORY_DIRNAME,
   MEMORY_FILE_BYTE_LIMIT,
   MEMORY_FILE_LINE_LIMIT,
@@ -75,9 +75,6 @@ export function validateMemory(root) {
   const memory = discoverMemory(absRoot)
   const findings = []
 
-  const claudeAbs = joinRel(absRoot, CLAUDE_MD)
-  const claudePresent = statSafe(claudeAbs)?.isFile() === true
-
   if (!memory.exists) {
     const result = buildResult(absRoot, [], [
       finding('memory-missing', 'info', MEMORY_DIRNAME, 'No memory/ directory: nothing to validate.'),
@@ -102,19 +99,26 @@ export function validateMemory(root) {
   }
 
   // CLAUDE.md is in scope: it carries a rendered template section, so it can
-  // hold an unresolved token or a broken memory path just as easily.
+  // hold an unresolved token or a broken memory path just as easily. Both forms
+  // the writing rule claims are scanned -- the root file and `.claude/CLAUDE.md`
+  // -- because accepting an edit as in-scope and then validating a different
+  // file reports findings about something the author did not touch.
   const scanned = [...memory.markdownFiles]
-  if (claudePresent && containedBy(absRoot, claudeAbs)) scanned.push(CLAUDE_MD)
-  else if (claudePresent) {
-    findings.push(
-      finding(
-        'escapes-repository',
-        'error',
-        CLAUDE_MD,
-        'Resolves outside the repository through a symlink. Its contents are excluded from ' +
-          'validation and from the audit prompt.'
+  for (const rel of CLAUDE_MD_SCOPE) {
+    const abs = joinRel(absRoot, rel)
+    if (statSafe(abs)?.isFile() !== true) continue
+    if (containedBy(absRoot, abs)) scanned.push(rel)
+    else {
+      findings.push(
+        finding(
+          'escapes-repository',
+          'error',
+          rel,
+          'Resolves outside the repository through a symlink. Its contents are excluded from ' +
+            'validation and from the audit prompt.'
+        )
       )
-    )
+    }
   }
 
   for (const rel of scanned) {
@@ -222,7 +226,7 @@ function checkSize(text, rel, findings) {
   const lines = countLines(text)
   const bytes = Buffer.byteLength(text, 'utf8')
 
-  if (rel === CLAUDE_MD) {
+  if (CLAUDE_MD_SCOPE.includes(rel)) {
     if (lines > CLAUDE_MD_LINE_SIGNAL) {
       findings.push(
         finding('oversized-file', 'warning', rel, `${lines} lines (signal threshold ${CLAUDE_MD_LINE_SIGNAL}). CLAUDE.md loads on every session.`, {
@@ -277,7 +281,7 @@ function checkSections(text, rel, memory, findings) {
 
 /** Handoffs are matched by role, not by filename, because the layout promotes to a directory. */
 function requiredSectionsFor(rel, memory) {
-  if (rel === CLAUDE_MD) return []
+  if (CLAUDE_MD_SCOPE.includes(rel)) return []
   const name = basename(rel)
   if (memory && memory.handoffs.files.some((f) => f.path === rel)) return REQUIRED_SECTIONS['handoff.md']
   if (rel === `${MEMORY_DIRNAME}/${name}` && REQUIRED_SECTIONS[name]) return REQUIRED_SECTIONS[name]

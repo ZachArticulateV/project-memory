@@ -32,7 +32,7 @@ import { fileURLToPath } from 'node:url'
 import { basename, isAbsolute, relative, resolve } from 'node:path'
 
 import { isDirectory, joinRel, toPosix } from './lib/fs-utils.mjs'
-import { CLAUDE_MD, MEMORY_DIRNAME } from './lib/memory-model.mjs'
+import { CLAUDE_MD_SCOPE, MEMORY_DIRNAME } from './lib/memory-model.mjs'
 import { STRUCTURAL_DISCLAIMER } from './lib/report.mjs'
 import { validateMemory } from './memory-validate.mjs'
 
@@ -70,8 +70,14 @@ const caseFold = (value) => (process.platform === 'win32' ? value.toLowerCase() 
 
 /**
  * True when an edited path is one this hook has anything to say about: inside
- * `memory/`, or a `CLAUDE.md` at any depth (the repository's own and the
- * `.claude/CLAUDE.md` form both qualify).
+ * `memory/`, or one of the CLAUDE.md files in CLAUDE_MD_SCOPE.
+ *
+ * The scope is the exact list the validator scans and the writing rule claims.
+ * It used to be "a CLAUDE.md at any depth", matched by basename, which was
+ * wrong in both directions: `.claude/CLAUDE.md` was accepted here and never
+ * scanned, so the hook reported findings from OTHER files as if it had checked
+ * the edited one, while `vendor/thing/CLAUDE.md` triggered a run about a file
+ * this system does not govern.
  *
  * Paths outside the project root are always false — a validation report about
  * another repository's file would be noise at best.
@@ -83,7 +89,7 @@ export function isMemoryScoped(root, filePath) {
   const rel = toPosix(relative(resolve(root), abs))
   if (rel === '' || rel.startsWith('../') || rel === '..' || isAbsolute(rel)) return false
 
-  if (caseFold(basename(rel)) === caseFold(CLAUDE_MD)) return true
+  if (CLAUDE_MD_SCOPE.some((claimed) => caseFold(rel) === caseFold(claimed))) return true
   return caseFold(rel).startsWith(caseFold(`${MEMORY_DIRNAME}/`))
 }
 
