@@ -29,6 +29,7 @@ import {
   runPostToolHook,
   selectFindings,
 } from '../scripts/post-tool-validate-hook.mjs'
+import { CLAUDE_MD_SCOPE } from '../scripts/lib/memory-model.mjs'
 import {
   claudeMd,
   cleanupAfter,
@@ -711,13 +712,33 @@ test('the PostToolUse entry is matched on Edit|Write and narrowed by single-rule
   assert.equal(groups[0].matcher, 'Edit|Write')
 
   const conditions = groups[0].hooks.map((h) => h.if)
-  assert.deepEqual(conditions, ['Edit(memory/**/*.md)', 'Edit(CLAUDE.md)'])
+  assert.deepEqual(conditions, [
+    'Edit(memory/**/*.md)',
+    'Edit(CLAUDE.md)',
+    'Edit(.claude/CLAUDE.md)',
+  ])
 
   for (const condition of conditions) {
     // The `if` field holds exactly one permission rule: there is no &&, ||, or
-    // list syntax, which is why the two scopes are two handlers.
+    // list syntax, which is why each scope is its own handler.
     assert.ok(!/&&|\|\||,/.test(condition), `if must hold exactly one rule: ${condition}`)
     assert.match(condition, /^Edit\([^()]+\)$/)
+  }
+})
+
+test('every path this system governs has a hook condition that fires for it', () => {
+  // The scope was declared in three places and enforced in a fourth. The
+  // validator scans `.claude/CLAUDE.md`, isMemoryScoped accepts it, and the
+  // writing rule claims it -- but `Edit(CLAUDE.md)` does not match a nested
+  // path, so the hook never ran for the one file most likely to be edited by
+  // hand. A declared scope with no trigger is a scope in name only.
+  const conditions = readHooksJson().hooks.PostToolUse[0].hooks.map((h) => h.if)
+
+  for (const claimed of CLAUDE_MD_SCOPE) {
+    assert.ok(
+      conditions.includes(`Edit(${claimed})`),
+      `${claimed} is in CLAUDE_MD_SCOPE but no hook condition fires for it`
+    )
   }
 })
 
