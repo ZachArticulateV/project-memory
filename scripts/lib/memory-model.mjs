@@ -660,11 +660,30 @@ export function resolveActiveHandoff(handoffs, branch) {
     return { active: null, matchesBranch: null, reason: 'no-handoff', candidates: [] }
   }
 
-  const matcher = (f) =>
-    (branch !== null && f.declaredBranch === branch) ||
-    (branch !== null && f.slug === slugify(branch))
+  // Two passes, not one ordered find.
+  //
+  // A single `find` accepting either an exact `Branch:` line OR a filename slug
+  // returns whichever comes first in directory order, and directory order has
+  // nothing to do with correctness. With branch `feature-auth`, a
+  // `feature-auth.md` that declares `Branch: feature/auth` sorts before a
+  // disambiguated `feature-auth.zz.md` that declares `Branch: feature-auth` --
+  // so the session was handed the OTHER workstream's handoff and told
+  // `matchesBranch: true`. Reproduced before this was changed.
+  //
+  // An explicit Branch: line is the strongest evidence available and is checked
+  // first. A filename slug is only a hint, and a file that declares a different
+  // branch belongs to that branch whatever its filename slugifies to.
+  const exact = branch === null ? null : files.find((f) => f.declaredBranch === branch) ?? null
 
-  const matched = branch === null ? null : files.find(matcher) ?? null
+  const slug = branch === null ? null : slugify(branch)
+  const slugMatches = branch === null ? [] : files.filter((f) => f.slug === slug)
+  // Only undeclared files can be claimed by slug; a declared one already spoke.
+  const slugCandidates = slugMatches.filter((f) => f.declaredBranch === null)
+  const slugConflicts = slugMatches.filter(
+    (f) => f.declaredBranch !== null && f.declaredBranch !== branch
+  )
+
+  const matched = exact ?? (slugCandidates.length === 1 ? slugCandidates[0] : null)
   const active = matched ?? (files.length === 1 ? files[0] : null)
 
   const candidates = files.map((f) => ({ ...f, active: active !== null && f.path === active.path }))
@@ -673,7 +692,30 @@ export function resolveActiveHandoff(handoffs, branch) {
     return { active, matchesBranch: null, reason: 'no-branch', candidates }
   }
   if (matched !== null) {
-    return { active, matchesBranch: true, reason: null, candidates }
+    return {
+      active,
+      matchesBranch: true,
+      reason: null,
+      candidates,
+      // Surfaced even on success: a filename that slugifies onto this branch
+      // while declaring another is worth renaming before it misleads someone.
+      ...(slugConflicts.length > 0
+        ? { slugConflicts: slugConflicts.map((f) => ({ path: f.path, declaredBranch: f.declaredBranch })) }
+        : {}),
+    }
+  }
+  if (slugCandidates.length > 1) {
+    // Two undeclared files whose names slugify identically (`feature-auth.md`
+    // and `feature_auth.md`). Picking one would be a coin flip presented as a
+    // fact; neither carries a Branch: line to break the tie.
+    return {
+      active: null,
+      matchesBranch: false,
+      reason: 'ambiguous-handoff-slug',
+      candidates,
+      currentBranch: branch,
+      ambiguous: slugCandidates.map((f) => f.path),
+    }
   }
   if (active !== null) {
     return {

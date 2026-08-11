@@ -693,6 +693,19 @@ collision to disambiguate and surface. Promotion moves rather than copies, or tw
 files declare the same branch and which one a reader gets depends on discovery
 order.
 
+**Reading has the same collision, and it was resolved by discovery order.**
+`resolveActiveHandoff` used one ordered scan that accepted either an exact
+`Branch:` line or a filename slug, so with two candidates the winner was
+whichever the directory listed first. A `feature-auth.md` declaring
+`Branch: feature/auth` sorts before a disambiguated `feature-auth.zz.md`
+declaring `Branch: feature-auth` — so a session on `feature-auth` was handed the
+other workstream's continuation state and told `matchesBranch: true`. It now
+resolves in two passes: an explicit `Branch:` line is the strongest evidence and
+is checked first; a filename slug is a hint that only an *undeclared* file can
+use, because a file that names its branch belongs to that branch whatever its
+filename slugifies to. Two undeclared files sharing a slug are reported
+`ambiguous-handoff-slug` rather than resolved by guessing.
+
 The `SessionStart` hook names both branches when the active handoff belongs to a
 different one, because acting on another workstream's continuation state is
 invisible without being told.

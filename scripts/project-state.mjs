@@ -16,7 +16,7 @@
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 
-import { fileFacts, joinRel, readTextSafe } from './lib/fs-utils.mjs'
+import { fileFacts, isDirectory, joinRel, readTextSafe } from './lib/fs-utils.mjs'
 import {
   CLAUDE_MD,
   CLAUDE_MD_LINE_SIGNAL,
@@ -113,6 +113,27 @@ function computeStaleness(root, git, memory, options) {
   // list that looks exactly like a clean tree.
   const workingTreeKnown = git.changesAvailable !== false
 
+  /**
+   * Is anything under this reference dirty?
+   *
+   * The committed half asks Git with a pathspec, which already covers
+   * descendants: `git log -- src` reports a commit touching `src/cache.mjs`.
+   * The working-tree half used exact set membership, so a memory file
+   * referencing `src/` was reported current while an uncommitted change sat in
+   * `src/cache.mjs`. The two halves disagreed about what a directory means.
+   *
+   * Renames are covered because dirtyPaths carries both `path` and `from`.
+   */
+  const dirtyAt = (ref) => {
+    if (dirtyPaths.has(ref)) return true
+    if (!isDirectory(joinRel(root, ref))) return false
+    const prefix = ref.endsWith('/') ? ref : `${ref}/`
+    for (const path of dirtyPaths) {
+      if (path.startsWith(prefix)) return true
+    }
+    return false
+  }
+
   const files = []
   const unchecked = []
 
@@ -157,7 +178,7 @@ function computeStaleness(root, git, memory, options) {
         uncheckedRefs.push({ path: ref, reason: `change history unavailable: ${history.error}` })
         continue
       }
-      const workingTree = workingTreeKnown && dirtyPaths.has(ref)
+      const workingTree = workingTreeKnown && dirtyAt(ref)
       if (history.commits.length > 0 || workingTree) {
         changes.push({ path: ref, commits: history.commits, workingTree })
       }
