@@ -17,12 +17,15 @@ minimal, retrievable, and sufficient.
 ## Install
 
 ```bash
-/plugin marketplace add ZachArticulateV/designer-pro-and-seo
+/plugin marketplace add ZachArticulateV/claude-plugins
 ```
 
 ```bash
-/plugin install project-memory@designer-pro-and-seo
+/plugin install project-memory@zacharticulatev
 ```
+
+Adding the marketplace installs nothing on its own — it just makes the plugins
+listed there available. Install only the ones you want.
 
 ## Use
 

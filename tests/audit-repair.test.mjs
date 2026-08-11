@@ -293,7 +293,7 @@ test('audit playbook reports which tier actually ran and why a higher one was sk
   assert.match(audit, /completedAudit: false/)
   // Reaching the weakest tier by demotion is actionable; reaching it because
   // nothing is installed is not. They must not be reported identically.
-  assert.match(audit, /different situation from neither CLI being installed/i)
+  assert.match(audit, /different situation from the CLI not being installed/i)
 })
 
 test('audit playbook handles the subagent-fallback directive as a directive, not a result', () => {

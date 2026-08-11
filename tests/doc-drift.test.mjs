@@ -165,6 +165,40 @@ test('the allowed-tools rules use a variable Claude Code substitutes there', () 
   }
 })
 
+test('the README installs this plugin from a marketplace that is self-consistent', () => {
+  // The shipped instruction named the marketplace this plugin used to live in,
+  // so the documented install would have failed for anyone following it. The
+  // marketplace itself is a separate repository, so what is checkable here is
+  // internal consistency: the plugin name matches the manifest, and the
+  // marketplace the install references is the one the reader was told to add.
+  const readme = readFileSync(join(repoRoot, 'README.md'), 'utf8')
+  const manifest = JSON.parse(readFileSync(join(repoRoot, '.claude-plugin', 'plugin.json'), 'utf8'))
+
+  const add = /\/plugin marketplace add ([\w.-]+)\/([\w.-]+)/.exec(readme)
+  const install = /\/plugin install ([\w.-]+)@([\w.-]+)/.exec(readme)
+
+  assert.notEqual(add, null, 'the README no longer shows how to add the marketplace')
+  assert.notEqual(install, null, 'the README no longer shows how to install the plugin')
+  assert.equal(install[1], manifest.name, 'the README installs a plugin name the manifest does not declare')
+  assert.ok(
+    add[2].includes(install[2]) || install[2].includes(add[1].toLowerCase()),
+    `README adds ${add[1]}/${add[2]} but installs from @${install[2]}`
+  )
+})
+
+test('the manifest version and the changelog agree', () => {
+  const manifest = JSON.parse(readFileSync(join(repoRoot, '.claude-plugin', 'plugin.json'), 'utf8'))
+  const changelog = readFileSync(join(repoRoot, 'CHANGELOG.md'), 'utf8')
+  const latest = /^## \[(\d+\.\d+\.\d+)\]/m.exec(changelog)
+
+  assert.notEqual(latest, null, 'the changelog has no released version heading')
+  assert.equal(
+    latest[1],
+    manifest.version,
+    `plugin.json is ${manifest.version} and the changelog's latest entry is ${latest[1]}`
+  )
+})
+
 test('both governed CLAUDE.md paths appear in the writing rule', () => {
   const rule = readFileSync(join(repoRoot, 'rules', 'memory-writing.md'), 'utf8')
   for (const claimed of CLAUDE_MD_SCOPE) {

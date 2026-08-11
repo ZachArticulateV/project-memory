@@ -93,7 +93,7 @@ three is the most important thing this mode does.
 | --- | --- | --- | --- |
 | `ok` | 0 | A tier ran and returned findings, possibly none | The findings, and the `tier` that produced them |
 | `failed` | 1 | A tier failed for a reason that is not a demotion signal | **That the audit did not happen**, and `error.reason` |
-| `fallback` | 3 | No external evaluator was usable; `directive` is `subagent-fallback` | That tier one and two were unavailable, then run the subagent tier yourself |
+| `fallback` | 3 | No external evaluator was usable; `directive` is `subagent-fallback` | That the Codex tier was unavailable, then run the subagent tier yourself |
 | — | 2 | Usage error: the invocation was wrong | Fix the invocation and rerun |
 
 A demotion is not a fourth status. When a tier hits a quota, auth, rate-limit, or
@@ -107,8 +107,8 @@ higher one was skipped.** "The audit found two problems" and "the audit found tw
 problems, using the fallback evaluator because Codex was out of quota" are
 different claims about how much the result is worth.
 
-A demotion off the last CLI tier lands on `status: fallback` with `demotions`
-non-empty. That is a different situation from neither CLI being installed, and
+A demotion off the Codex tier lands on `status: fallback` with `demotions`
+non-empty. That is a different situation from the CLI not being installed, and
 the report should say which it was — reaching the weakest tier by demotion is
 information the user can act on; reaching it by absence is not.
 
@@ -236,7 +236,7 @@ If nothing was found and the tier ran, say that plainly and recommend no repair.
 - Reporting a tier failure as an audit that found nothing.
 - Falling through to a lower tier on a genuine audit error and presenting the
   result as a completed audit.
-- Presenting tier three's verdict as equivalent to tier one's.
+- Presenting the subagent tier's verdict as equivalent to the Codex tier's.
 - Letting the auditor write. It returns evidence; the coordinator writes.
 - Reporting the tree healthy when most claims were never checkable.
 - Handing the auditor a verification claim nobody observed.

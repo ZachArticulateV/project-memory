@@ -295,7 +295,7 @@ unresolvable shim is refused rather than routed through an interpreter.
 
 ### The memory-auditor subagent
 
-`agents/memory-auditor.md` is tier three. Its tool grant is `Read, Grep, Glob`
+`agents/memory-auditor.md` is the second and last tier. Its tool grant is `Read, Grep, Glob`
 and nothing else.
 
 That is the design, not an oversight. A subagent's `tools` list cannot restrict
@@ -611,9 +611,9 @@ Then `/clear` is safe: the next session reads the five-file startup set and
 continues.
 
 **During audit.** The evaluator receives the memory tree, `CLAUDE.md`, the
-classification taxonomy, and the coordinator's collected observations. Tier one
-and two read the checkout directly under their own sandbox; tier three reads it
-with `Read`, `Grep`, and `Glob`. The coordinator reads the findings and decides;
+classification taxonomy, and the coordinator's collected observations. The Codex
+tier reads the checkout directly under its own sandbox; the subagent tier reads
+it with `Read`, `Grep`, and `Glob`. The coordinator reads the findings and decides;
 nothing in the audit path writes.
 
 ## Context cost

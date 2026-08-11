@@ -772,7 +772,7 @@ test('an unknown --tier is a usage error, not a silent full-tier run', () => {
 // Windows npm install because the global CLI is a `.CMD` shim. Nothing lied --
 // the failure classified as `environment` and demoted honestly -- but BOTH
 // external tiers were unreachable, so every audit on those machines silently
-// ran on the weakest evaluator. An audit that always runs tier three is not the
+// ran on the weakest evaluator. An audit that always runs the fallback is not the
 // capability this plugin claims to provide.
 // ---------------------------------------------------------------------------
 

@@ -845,7 +845,7 @@ export function assertNoWriteEnablingFlags(argv) {
  *
  * Windows npm installs a global CLI as a `.CMD` shim, and Node refuses to
  * execute `.cmd`/`.bat` through execFile without a shell. Passing the bare name
- * fails with ENOENT, so both external tiers become unreachable and every audit
+ * fails with ENOENT, so the external tier becomes unreachable and every audit
  * silently lands on the weakest evaluator.
  *
  * An earlier fix routed shims through `cmd.exe /d /s /c` with an array argv, on
