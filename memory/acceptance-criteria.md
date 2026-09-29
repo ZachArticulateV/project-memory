@@ -51,7 +51,7 @@ protected writes, so interactive behavior is not covered.
 | `audit` without Codex falls back to the bundled auditor, names the tier, and writes nothing | verified | Live run: subagent tier named, weaker evidence stated, working tree unchanged; findings were real |
 | `repair` edits only accepted findings and leaves declined ones untouched | verified | Live run: 5 files, 33 lines added and 32 removed; declined brief finding left byte-identical; user-reported test run labelled as such |
 | `grill` runs a round, waits, and writes only after confirmation | verified | Live three-round run via `--resume`: eight frontier questions with recommendations, a write proposal, and writes only after approval; working tree unchanged until then; one decision record, not one per answer |
-| Modes find the skill's templates rather than composing from prose | unverified | Live grill run could not find `templates/`; the router now states skill-relative paths (not yet re-run) |
+| Modes find the skill's templates rather than composing from prose | verified | After `8fa999f`, a live handoff's tool calls read `skills/project-memory/templates/handoff.md` from the plugin; the result validated clean |
 | `init` installs the writing rule | failing | Protected `.claude/` write refused in a headless run; `init` now prints the copy command |
 
 ## Out of scope for completion
