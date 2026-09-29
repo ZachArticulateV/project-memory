@@ -111,9 +111,22 @@ export function collectContract(absRoot) {
   })
   const sections = files.filter((f) => f.section !== null).map((f) => f.section)
   const sectionsMatch = sections.length < 2 ? null : sections.every((s) => s === sections[0])
+
+  // Which harness would open this project without the pointer. Claude Code
+  // reads both CLAUDE.md forms, so one carrying the section (or importing an
+  // AGENTS.md that does) covers it; Codex reads only AGENTS.md.
+  const agents = files.find((f) => f.path === AGENTS_MD)
+  const agentsCovered = agents.present && agents.section !== null
+  const claudeFiles = files.filter((f) => f.path !== AGENTS_MD && f.present && !f.escapes)
+  const claudeCovered = claudeFiles.some((f) => f.section !== null || (f.importsAgentsMd && agentsCovered))
+  const missing = []
+  if (claudeFiles.length > 0 && !claudeCovered) missing.push(...claudeFiles.map((f) => f.path))
+  if (agents.present && !agents.escapes && !agentsCovered) missing.push(AGENTS_MD)
+
   return {
     files: files.map(({ section, ...rest }) => rest),
     sectionsMatch,
+    missingSection: missing,
   }
 }
 
@@ -323,6 +336,15 @@ function deriveSignals(state) {
       id: 'claude-md-large',
       path: file.path,
       message: `${file.path} is ${file.lines} lines (signal threshold ${CLAUDE_MD_LINE_SIGNAL})`,
+    })
+  }
+
+  if (state.memory.exists && state.contract.missingSection.length > 0) {
+    signals.push({
+      id: 'contract-section-missing',
+      message: `${state.contract.missingSection.join(' and ')} ${
+        state.contract.missingSection.length === 1 ? 'has' : 'have'
+      } no memory section, so an agent reading ${state.contract.missingSection.length === 1 ? 'it' : 'them'} is not pointed at memory/`,
     })
   }
 

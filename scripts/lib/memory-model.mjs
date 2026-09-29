@@ -89,12 +89,16 @@ export const MEMORY_SECTION_HEADING = 'Project Memory'
  * only in line wrapping or trailing spaces compare equal. Null when absent.
  */
 export function extractMemorySection(text) {
-  const lines = text.replace(/\r\n/g, '\n').split('\n')
-  const start = lines.findIndex((l) => l.trim() === `## ${MEMORY_SECTION_HEADING}`)
+  const normalized = text.replace(/\r\n/g, '\n')
+  const lines = normalized.split('\n')
+  // Headings are found on the masked text, so a `## ` line inside a fence or a
+  // comment neither starts nor ends the section. Masking preserves line breaks.
+  const masked = maskNonProse(normalized).split('\n')
+  const start = masked.findIndex((l) => l.trim() === `## ${MEMORY_SECTION_HEADING}`)
   if (start === -1) return null
   let end = lines.length
-  for (let i = start + 1; i < lines.length; i += 1) {
-    if (/^##\s/.test(lines[i])) {
+  for (let i = start + 1; i < masked.length; i += 1) {
+    if (/^#{1,2}\s/.test(masked[i])) {
       end = i
       break
     }
@@ -649,6 +653,12 @@ export function discoverMemory(root) {
     else escapedFiles.push(rel)
   }
   if (exists && !containedBy(root, memoryAbs)) escapedFiles.unshift(`${MEMORY_DIRNAME}/`)
+  // The walk above never follows a directory link, so a linked subdirectory's
+  // files are simply not listed. Name the link itself, or it vanishes silently.
+  for (const sub of [DECISIONS_DIRNAME, HANDOFFS_DIRNAME, 'archive']) {
+    const subAbs = joinRel(root, `${MEMORY_DIRNAME}/${sub}`)
+    if (isDirectory(subAbs) && !containedBy(root, subAbs)) escapedFiles.push(`${MEMORY_DIRNAME}/${sub}/`)
+  }
 
   return {
     exists,
@@ -658,7 +668,7 @@ export function discoverMemory(root) {
     core,
     optional,
     decisions: {
-      present: isDirectory(decisionsAbs),
+      present: isDirectory(decisionsAbs) && containedBy(root, decisionsAbs),
       dir: `${MEMORY_DIRNAME}/${DECISIONS_DIRNAME}`,
       indexPresent: isFile(joinRel(root, `${MEMORY_DIRNAME}/${DECISIONS_DIRNAME}/INDEX.md`)),
       records: decisionRecords,
@@ -677,6 +687,9 @@ export function discoverHandoffs(root) {
   const files = []
   if (isDirectory(dirAbs)) {
     for (const abs of listFiles(dirAbs, { extension: '.md' })) {
+      // A handoff outside the checkout is never offered as active: the handoff
+      // mode would otherwise write through the link.
+      if (!containedBy(root, abs)) continue
       const rel = relPosix(root, abs)
       const text = readTextSafe(abs) ?? ''
       files.push({
@@ -689,7 +702,7 @@ export function discoverHandoffs(root) {
   }
 
   const singleAbs = joinRel(root, singleRel)
-  if (isFile(singleAbs)) {
+  if (isFile(singleAbs) && containedBy(root, singleAbs)) {
     const text = readTextSafe(singleAbs) ?? ''
     files.push({
       path: singleRel,

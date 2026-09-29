@@ -45,7 +45,7 @@ Answer each of these, from observed facts:
 | Is there an active handoff? | `handoff.active` |
 | Does it belong to this branch? | `handoff.matchesBranch` |
 | Has `CLAUDE.md` grown large? | `claudeMd.lines`, `claudeMd.large`; for `.claude/CLAUDE.md` and `AGENTS.md`, `contract.files[].large` |
-| Do `CLAUDE.md` and `AGENTS.md` carry the memory section, and the same one? | `contract` in the probe output |
+| Do `CLAUDE.md` and `AGENTS.md` carry the memory section, and the same one? | `contract.missingSection`, `contract.sectionsMatch`, and their signals |
 | Does a glossary exist? | `memory.optional[]` |
 | When was memory last committed? | `staleness.files[].lastCommit` |
 | Is memory behind relevant changes? | `staleness.staleFiles` |

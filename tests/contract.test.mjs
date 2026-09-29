@@ -210,3 +210,98 @@ test('a directory that does not exist is a usage error, not an empty result', ()
     assert.match(run.stderr, /not a directory/)
   }
 })
+
+// --- re-audit: containment, section boundaries, missing sections, budget ------
+
+const linkOrSkip = (t, target, path) => {
+  try {
+    symlinkSync(target, path)
+    return true
+  } catch {
+    t.skip('symlinks unavailable on this platform or account')
+    return false
+  }
+}
+
+test('a contract file linked outside the checkout is reported as escaping and never read', (t) => {
+  const root = makeFixture(completeMemoryTree())
+  const outside = mkdtempSync(join(tmpdir(), 'pm-outside-'))
+  cleanupAfter(test, root)
+  t.after(() => rmSync(outside, { recursive: true, force: true }))
+  writeFileSync(join(outside, 'AGENTS.md'), withSection('Outside'))
+  if (!linkOrSkip(t, join(outside, 'AGENTS.md'), join(root, 'AGENTS.md'))) return
+
+  const agents = collectProjectState(root).contract.files.find((f) => f.path === 'AGENTS.md')
+  assert.equal(agents.escapes, true)
+  assert.equal(agents.hasMemorySection, false)
+})
+
+test('linked decisions/ and handoffs/ directories are reported, listed empty, and never active', (t) => {
+  const root = makeFixture(completeMemoryTree())
+  const outside = mkdtempSync(join(tmpdir(), 'pm-outside-'))
+  cleanupAfter(test, root)
+  t.after(() => rmSync(outside, { recursive: true, force: true }))
+  mkdirSync(join(outside, 'decisions'))
+  mkdirSync(join(outside, 'handoffs'))
+  writeFileSync(join(outside, 'decisions', '009-x.md'), '---\nid: 009\nstatus: accepted\ndate: 2026-01-01\n---\n# X\n')
+  writeFileSync(join(outside, 'handoffs', 'main.md'), '# Active Handoff\n\nBranch: main\n')
+  rmSync(join(root, 'memory', 'decisions'), { recursive: true, force: true })
+  rmSync(join(root, 'memory', 'handoff.md'), { force: true })
+  if (!linkOrSkip(t, join(outside, 'decisions'), join(root, 'memory', 'decisions'))) return
+  if (!linkOrSkip(t, join(outside, 'handoffs'), join(root, 'memory', 'handoffs'))) return
+
+  const state = collectProjectState(root)
+  assert.deepEqual(state.memory.decisions.records, [])
+  assert.equal(state.memory.decisions.present, false)
+  assert.ok(state.memory.escaped.includes('memory/decisions/'), JSON.stringify(state.memory.escaped))
+  assert.ok(state.memory.escaped.includes('memory/handoffs/'))
+  assert.equal(state.handoff.active, null)
+  const escapes = validateMemory(root).findings.filter((f) => f.check === 'escapes-repository').map((f) => f.artifact)
+  assert.ok(escapes.includes('memory/decisions/'))
+})
+
+test('a heading inside a fence does not end the section; a following H1 does', () => {
+  const fenced = section.replace('Read decisions', '```\n## Not a heading\n```\n\nRead decisions')
+  const a = extractMemorySection(`# A\n\n${fenced}`)
+  assert.match(a, /Read decisions/)
+  const withH1 = extractMemorySection(`# A\n\n${section}\n# Appendix\n\nUnrelated.\n`)
+  assert.doesNotMatch(withH1, /Unrelated/)
+})
+
+test('a contract file without the memory section is reported per harness', () => {
+  const noSection = makeFixture({
+    ...completeMemoryTree(),
+    'CLAUDE.md': withSection('Claude'),
+    'AGENTS.md': '# Agents\n\nNo pointer here.\n',
+  })
+  cleanupAfter(test, noSection)
+  const state = collectProjectState(noSection)
+  assert.deepEqual(state.contract.missingSection, ['AGENTS.md'])
+  assert.ok(state.signals.some((s) => s.id === 'contract-section-missing'))
+
+  // Claude Code reads both CLAUDE.md forms, so one pointer covers it.
+  const both = makeFixture({
+    ...completeMemoryTree(),
+    'CLAUDE.md': withSection('Claude'),
+    '.claude/CLAUDE.md': '# Local\n\nOther notes.\n',
+  })
+  cleanupAfter(test, both)
+  assert.deepEqual(collectProjectState(both).contract.missingSection, [])
+
+  // An import of an AGENTS.md that lacks the section covers nothing.
+  const hollow = makeFixture({ ...completeMemoryTree(), 'CLAUDE.md': '@AGENTS.md\n', 'AGENTS.md': '# Agents\n' })
+  cleanupAfter(test, hollow)
+  assert.deepEqual(collectProjectState(hollow).contract.missingSection, ['CLAUDE.md', 'AGENTS.md'])
+})
+
+test('the audit prompt keeps contract files under a tight budget and names every omitted file', () => {
+  const tree = completeMemoryTree()
+  for (let i = 1; i <= 5; i += 1) tree[`memory/archive/f${i}.md`] = `# F${i}\n\n${'x'.repeat(3000)}\n`
+  const root = makeFixture({ ...tree, 'AGENTS.md': '# Agents\n\nAGENTS_MARKER_7f3c\n' })
+  cleanupAfter(test, root)
+
+  const prompt = buildAuditPrompt(root, { maxPromptChars: 12000 })
+  assert.match(prompt, /AGENTS_MARKER_7f3c/)
+  assert.match(prompt, /omitted: prompt budget exhausted/)
+  assert.match(prompt, /memory\/archive\/f5\.md/)
+})

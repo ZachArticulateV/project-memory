@@ -107,6 +107,9 @@ export function renderStateText(state) {
       out.push(bullet(`${f.path}: ${f.lines} lines${f.large ? ' (large)' : ''}, ${how}`))
     }
     if (state.contract.sectionsMatch === false) out.push(bullet('memory sections differ between contract files'))
+    if (state.memory.exists && state.contract.missingSection?.length > 0) {
+      out.push(bullet(`missing the memory section: ${state.contract.missingSection.join(', ')} (run init to add it)`))
+    }
   }
 
   out.push('')

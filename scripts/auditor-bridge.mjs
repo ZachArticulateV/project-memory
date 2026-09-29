@@ -673,7 +673,10 @@ export function buildAuditPrompt(root, options = {}) {
   // whether CLAUDE.md and AGENTS.md carry the same memory section, and the
   // Codex tier has no other route to AGENTS.md (project docs are disabled).
   // They arrive as data on stdin, never as instructions.
-  for (const rel of [...memory.markdownFiles, ...CLAUDE_MD_SCOPE]) {
+  // Contract files first: they are small, and the section-parity question the
+  // audit asks needs both copies, so they must not be the ones a tight budget
+  // cuts.
+  for (const rel of [...CLAUDE_MD_SCOPE, ...memory.markdownFiles]) {
     const abs = join(absRoot, ...rel.split('/'))
     const text = readTextContained(absRoot, abs)
     if (text !== null) {
@@ -747,19 +750,31 @@ export function buildAuditPrompt(root, options = {}) {
   const sections = []
   let budget = maxPromptChars - head.join('\n').length
 
+  const omitted = []
   for (const { rel, text } of readable) {
-    if (budget <= 0) break
     const clipped =
       text.length > maxFileChars
         ? `${text.slice(0, maxFileChars)}\n… [truncated: ${text.length - maxFileChars} more characters]\n`
         : text
     const section = `=== ${rel} ===\n${clipped}`
-    if (section.length > budget) {
-      sections.push(`=== ${rel} ===\n… [omitted: prompt budget exhausted]\n`)
-      break
+    if (omitted.length > 0 || section.length > budget) {
+      omitted.push(rel)
+      continue
     }
     sections.push(section)
     budget -= section.length
+  }
+  // Every file cut for budget is named. A file missing with no explanation
+  // reads exactly like a file that was checked and passed.
+  if (omitted.length > 0) {
+    sections.push(
+      [
+        '=== omitted: prompt budget exhausted ===',
+        'These files exist but were NOT read and are NOT part of this audit:',
+        ...omitted.map((rel) => `  ${rel}`),
+        '',
+      ].join('\n')
+    )
   }
 
   return `${head.join('\n')}\n${sections.join('\n')}`
