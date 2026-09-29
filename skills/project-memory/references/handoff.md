@@ -206,7 +206,7 @@ the refresh-token retry`.
 
 | Next session | Add |
 | --- | --- |
-| Codex | A launch line: `codex "<resume prompt as one line>"`. Codex reads `AGENTS.md`, not `CLAUDE.md`; if the project has no memory section in `AGENTS.md`, the resume prompt is the only pointer it gets, so it must name `memory/INDEX.md` and the handoff path explicitly |
+| Codex | A launch line: `codex "<resume prompt as one line>"`. Codex reads `AGENTS.md`, not `CLAUDE.md`; if the project has no memory section in `AGENTS.md`, the resume prompt is the only pointer it gets, so it must name `memory/INDEX.md` and the handoff path explicitly, and the report suggests `init` to add the `AGENTS.md` pointer so later Codex sessions find memory unprompted |
 | A background Claude Code session | A launch line: `claude --bg --name "<short task name>" "<resume prompt as one line>"` |
 | A person | Nothing extra. The prompt is still what they paste into their agent |
 
