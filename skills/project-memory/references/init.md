@@ -9,6 +9,16 @@ have spent months tuning. Slow down here.
 
 You have already run the state probe. Use its output rather than re-deriving.
 
+## 0. Confirm where memory will live
+
+The probe resolves the project root from the working directory: the nearest
+ancestor holding `memory/INDEX.md`, else the Git root. Its `root` field is
+where `init` writes. When that is not the directory the user is working in
+(a package inside a monorepo, say), tell them both paths and ask which they
+mean before writing. For memory in the current directory instead, rerun the
+probe with that directory as its positional argument and use that result
+throughout. Later sessions there then find the tree in that directory first.
+
 ## 1. Route
 
 | Repository class | Signal | Go to |

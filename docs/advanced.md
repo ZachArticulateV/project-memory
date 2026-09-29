@@ -27,6 +27,18 @@ Facts learned in one worktree are not carried into another's memory unless
 they are verified in that checkout. Memory is committed, so each branch's
 memory describes that branch.
 
+## Monorepos and subdirectories
+
+Sessions and scripts find the project root by walking up from where you are:
+the nearest folder holding `memory/INDEX.md`, else the Git root. A session
+opened in `src/` therefore sees the repository's memory rather than offering a
+second `init`.
+
+For memory per package, run `/project-memory init` from the package folder.
+It tells you the root it resolved (the Git root, the first time) and asks
+which you mean; choose the package. From then on, sessions in that package
+find its own `memory/INDEX.md` first.
+
 ## Codex
 
 The repository ships a Codex plugin manifest (`.codex-plugin/plugin.json`)
