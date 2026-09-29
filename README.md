@@ -38,7 +38,7 @@ listed there available. Install only the ones you want.
 | `/project-memory init` | Inspect the project and build the memory system. Reconstructs state for mature repos; interviews you for new ones. |
 | `/project-memory status` | Read-only health report. Never writes. |
 | `/project-memory sync` | Reconcile memory with what actually changed. Idempotent — often reports no changes required. |
-| `/project-memory handoff` | Capture continuation state before `/clear`, a context switch, or the end of a session. |
+| `/project-memory handoff [focus]` | Capture continuation state before `/clear`, a context switch, or the end of a session. Optional focus tailors it to the next session's job; ends with a paste-ready resume prompt. |
 | `/project-memory audit` | Independently check memory against repository reality. Returns evidence, not edits. |
 | `/project-memory repair` | Correct the problems an audit found, preserving valid human-authored context. |
 
@@ -147,6 +147,9 @@ criteria, and archives are fetched when the task makes them relevant.
 - [`docs/limitations.md`](docs/limitations.md) — what the system does not
   guarantee, including which acceptance scenarios are machine-verified and which
   are not.
+- [`docs/benchmark/mattpocock-skills.md`](docs/benchmark/mattpocock-skills.md) —
+  which patterns were adopted from mattpocock/skills, which were rejected, and
+  why.
 
 ## Requirements
 

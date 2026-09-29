@@ -88,3 +88,25 @@ test('the index template does not hardcode external systems', () => {
     assert.doesNotMatch(body, new RegExp(invented), `index.md hardcodes ${invented}`)
   }
 })
+
+test('the handoff template points at artifacts and names the next commands', () => {
+  const body = readTemplate('handoff.md')
+  // Detail that lives in a spec, decision, or issue is linked, not restated:
+  // a restated copy drifts, and the handoff is the copy the next session trusts.
+  assert.match(body, /^## Pointers$/m)
+  assert.match(body, /^## Suggested commands$/m)
+  assert.match(body, /^Next session focus: /m)
+  // Pointers precede the next steps so the reader has them when acting.
+  assert.ok(body.indexOf('## Pointers') < body.indexOf('## Continue here'))
+})
+
+test('the handoff playbook reads a focus and prints a pointer-only resume prompt', () => {
+  const playbook = readFileSync(join(skillDir, 'references', 'handoff.md'), 'utf8')
+  assert.match(playbook, /^## 0\. Read the focus$/m)
+  assert.match(playbook, /resume prompt/i)
+  // The resume prompt is printed, never persisted: a second copy of the
+  // handoff inside memory would drift from the first.
+  assert.match(playbook, /printed, not written to memory/)
+  // The focus must never upgrade what counts as verified.
+  assert.match(playbook, /never changes what counts as verified/)
+})

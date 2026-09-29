@@ -159,6 +159,10 @@ what changed, what was actually verified, what remains unresolved, what
 hypotheses exist, what the next session should do first, and what it must not
 assume.
 
+**Also carries, when they apply:** the next session's focus, pointers to the
+artifacts that already hold detail (linked, never restated), and the commands
+or skills the next session should run.
+
 **Evidence requirements:** branch, and `HEAD` when Git exists; working-tree state
 when it matters; meaningful modified files; tests actually run with their actual
 results. A claim that tests pass is written only when a run was observed. An

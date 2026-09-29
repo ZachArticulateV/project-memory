@@ -4,6 +4,24 @@ All notable changes to this plugin are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Handoff focus.** `/project-memory handoff <focus>` tailors the handoff to
+  what the next session will do and records it on a `Next session focus:` line.
+  The focus shapes selection, never what counts as verified.
+- **`Pointers` and `Suggested commands`** sections in the handoff template.
+  Specs, decisions, issues, and commits are linked instead of restated.
+- **Resume prompt.** The handoff report ends with a paste-ready, pointer-only
+  prompt for a fresh session in any agent. It is printed, never persisted.
+- **`docs/benchmark/mattpocock-skills.md`**: the adopted and rejected patterns
+  from mattpocock/skills, with a scorecard.
+
+### Changed
+
+- Handoff redaction covers personal data, not only secret values.
+
 ## [1.0.0] — 2026-08-11
 
 First release. One skill with six modes, a deterministic Node core, two hooks, a

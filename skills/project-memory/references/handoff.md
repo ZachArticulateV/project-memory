@@ -11,6 +11,17 @@ observed evidence, and the parts it cannot evidence it says it cannot evidence.
 
 You have already run the state probe. Use its output rather than re-deriving.
 
+## 0. Read the focus
+
+Any words after `handoff` are the **focus**: what the next session will be used
+for. `/project-memory handoff finish the refresh-token retry` has the focus
+`finish the refresh-token retry`.
+
+The focus shapes selection, not truth. It decides which completed work, which
+pointers, and which next steps earn a place, and it is recorded on the
+`Next session focus:` line. It never changes what counts as verified. With no
+focus, write `Next session focus: unspecified` and cover the work as it stands.
+
 ## 1. Gather the evidence first
 
 | Fact | Source | Include when |
@@ -26,6 +37,12 @@ You have already run the state probe. Use its output rather than re-deriving.
 "Meaningful" is doing work in that table. A handoff listing forty changed files
 including lockfiles and formatting churn has buried the three files the next
 session needs. Name the ones that carry the work; summarize the rest as a count.
+
+**Point, do not copy.** Detail that already lives in another artifact (a spec,
+a decision record, an issue, a PR, a commit, a log file) is linked under
+`Pointers` by path or URL, with one line on why it matters. Restating it creates
+a second copy that drifts from the first, and the handoff is the copy the next
+session will believe.
 
 Everything in the handoff is either observed or labelled as unobserved. A
 handoff is the artifact most likely to be believed by the next session and least
@@ -114,6 +131,21 @@ these sections are not optional:
   true when you started and may not be now. This section is required. A handoff
   with nothing in it has not thought about how it will be misread.
 
+Two more sections carry the next session's tooling:
+
+- **Pointers** — one line per artifact that holds detail this handoff does not
+  repeat. Omit the section when nothing qualifies; do not pad it.
+- **Suggested commands** — the skills, modes, or commands the next session
+  should run, each with its trigger: `/project-memory sync` once the retry
+  lands; `node --test tests/auth` before touching the refresh path. Name only
+  what is installed or present in the repository. A suggestion the next session
+  cannot run costs it a failed call and some trust in the rest of the file.
+
+**Redact before writing.** Secret values never enter memory (see `safety.md`).
+The same holds for personal data that is not needed to continue: customer
+names, email addresses, patient or account identifiers found in logs or
+fixtures. Record that the data exists and where, not the data.
+
 Keep it a continuation pointer. **Replace the file; never append.** A second
 session entry under the first turns the handoff into the session log the schema
 exists to prevent, and the next reader has to work out which half is current.
@@ -143,6 +175,22 @@ Say which file you wrote, whether the layout changed, what you recorded as
 verified, and what you recorded as not run. That last one is the part the user
 most needs to hear out loud, because it is the part they might otherwise assume.
 
+End with a **resume prompt**: a fenced `text` block the user can paste as the
+first message of a fresh session, in Claude Code or any other agent. It points;
+it does not summarize:
+
+```text
+Continue the work recorded in memory/handoffs/feature-auth-refresh.md.
+Read memory/INDEX.md, then that handoff, before changing anything.
+Focus: finish the refresh-token retry.
+Verify before relying on: the retry path has no passing test yet.
+First step: run node --test tests/auth and confirm the timeout reproduces.
+```
+
+Keep it under ten lines. The resume prompt is printed, not written to memory:
+the handoff file is the durable record, and a second copy of its contents in
+the same file would drift from the first.
+
 ## Failure modes this mode must avoid
 
 - Claiming a verification that was not observed.
@@ -155,3 +203,6 @@ most needs to hear out loud, because it is the part they might otherwise assume.
 - Omitting "Do not assume" because nothing came to mind.
 - Listing every changed file instead of the ones that carry the work.
 - Inventing a HEAD in a project that has no Git repository.
+- Restating a spec, decision, or issue instead of pointing at it.
+- Suggesting a command or skill the next session does not have.
+- Letting the focus upgrade an unverified claim because it matters to the focus.

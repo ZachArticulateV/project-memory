@@ -1,7 +1,7 @@
 ---
 name: project-memory
 description: Initialize, inspect, reconcile, hand off, audit, or repair a project's canonical memory under memory/. Use when the user runs /project-memory, asks to set up or bootstrap project memory, asks whether memory is current or has drifted, asks to sync or reconcile memory after implementation work, asks to write a handoff or prepare for /clear or a context reset, or asks to audit or repair memory against the actual repository. Do NOT use for ordinary coding, refactoring, debugging, test-writing, or code-review requests — writing code in a project that has memory is not a memory operation, and routine work must never trigger an audit.
-argument-hint: "[init|status|sync|handoff|audit|repair]"
+argument-hint: "[init|status|sync|handoff|audit|repair] [handoff focus]"
 allowed-tools: Bash(node "${CLAUDE_SKILL_DIR}/../../scripts/project-state.mjs" *), Bash(node "${CLAUDE_SKILL_DIR}/../../scripts/memory-validate.mjs" *), Bash(node "${CLAUDE_SKILL_DIR}/../../scripts/auditor-bridge.mjs" *)
 ---
 
@@ -30,6 +30,9 @@ The requested mode is `$0`. Follow these steps in order.
 
 If `$0` is empty or is not one of the six, print the table above and stop. Do not
 guess a mode from surrounding conversation.
+
+Words after the mode are that mode's argument. Only `handoff` reads one: the
+next session's focus. The full input is `$ARGUMENTS`.
 
 ### 2. Inspect existing state
 
