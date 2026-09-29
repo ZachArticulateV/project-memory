@@ -1,8 +1,8 @@
 # Agent instructions
 
 This repository is the Project Memory plugin for Claude Code and Codex. The
-same rules apply to every agent working here; `CLAUDE.md` carries the full set
-of commands and invariants and is worth reading once.
+same rules apply to every agent working here; `.claude/CLAUDE.md` carries the
+full set of commands and invariants and is worth reading once.
 
 ## Critical Commands
 
