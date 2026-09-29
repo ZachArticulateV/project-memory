@@ -77,8 +77,10 @@ hooks (decision 007).
 - Run `node --test` before and after. Doc-drift tests pin counts stated in
   prose (modes, checks, patterns), so a change to a count is a change to prose.
 - Gate every commit on the tests, `claude plugin validate . --strict`, and the
-  memory validator together. A chain that pipes the validator through `tail`
-  hides its failure; this happened once in this workstream.
+  memory validator together, checking each exit code explicitly. Twice in this
+  workstream a chain looked gated and was not: piping through `tail` hid a
+  failure, and `set -e` did not stop a failing pipeline in the agent shell, so
+  commit `205cedd` shipped with one failing test (fixed in the next commit).
 - `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` must keep
   identical shared metadata.
 - This repository's own instructions live at `.claude/CLAUDE.md`, never a root

@@ -20,5 +20,5 @@ Each item names an observable outcome. "Improve the backend" is not an action.
 
 - [ ] Live Codex verification of `status`, the Outside Claude Code instructions, and the Codex launch line
   - Blocked by: no Codex CLI in the development environment
-- [ ] Case-insensitive path handling on macOS
-  - Blocked by: no macOS runner to verify against
+- [ ] Confirm filesystem case detection on a real case-insensitive macOS disk
+  - Blocked by: no macOS machine or runner

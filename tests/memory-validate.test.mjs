@@ -683,6 +683,9 @@ test('a tree with no decision records yet does not warn about the decisions/ it 
   // on day one.
   const tree = completeMemoryTree()
   for (const key of Object.keys(tree)) if (key.startsWith('memory/decisions/')) delete tree[key]
+  // Drop the fixture's pointer at a specific record; naming a record that does
+  // not exist is still a real broken reference.
+  for (const key of Object.keys(tree)) tree[key] = tree[key].replaceAll('decisions/001-in-memory-cache.md', 'decisions/')
   tree['memory/next-actions.md'] += '\nCompleted items move to `decisions/` or `archive/`.\n'
   const root = makeFixture(tree)
   cleanupAfter(test, root)
