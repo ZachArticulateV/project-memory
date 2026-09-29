@@ -648,6 +648,26 @@ const TAXONOMY_LINES = [
  * the contract for answering. Deterministic — the same tree produces the same
  * prompt, so a tier difference is never a prompt difference.
  */
+/**
+ * Memory files in the order an audit most needs them: the startup set and the
+ * index first, then the other core and optional files, handoffs, decision
+ * records, and the archive last. A large archive must never be what pushes
+ * current state out of a tight prompt.
+ */
+export function byAuditPriority(files) {
+  const rank = (rel) => {
+    const name = rel.slice(`${MEMORY_DIRNAME}/`.length)
+    const order = ['INDEX.md', 'current-state.md', 'handoff.md', 'next-actions.md', 'project-brief.md',
+      'bugs-and-risks.md', 'acceptance-criteria.md', 'glossary.md']
+    if (order.includes(name)) return order.indexOf(name)
+    if (name.startsWith('handoffs/')) return 10
+    if (name.startsWith('decisions/')) return 20
+    if (name.startsWith('archive/')) return 40
+    return 30
+  }
+  return [...files].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+}
+
 export function buildAuditPrompt(root, options = {}) {
   const {
     maxFileChars = MAX_FILE_CHARS,
@@ -676,7 +696,7 @@ export function buildAuditPrompt(root, options = {}) {
   // Contract files first: they are small, and the section-parity question the
   // audit asks needs both copies, so they must not be the ones a tight budget
   // cuts.
-  for (const rel of [...CLAUDE_MD_SCOPE, ...memory.markdownFiles]) {
+  for (const rel of [...CLAUDE_MD_SCOPE, ...byAuditPriority(memory.markdownFiles)]) {
     const abs = join(absRoot, ...rel.split('/'))
     const text = readTextContained(absRoot, abs)
     if (text !== null) {
@@ -750,6 +770,10 @@ export function buildAuditPrompt(root, options = {}) {
   const sections = []
   let budget = maxPromptChars - head.join('\n').length
 
+  // Room for the omitted-files notice is reserved up front, so naming what was
+  // cut can never push the prompt past its limit.
+  const NOTICE_RESERVE = Math.min(4000, Math.floor(maxPromptChars / 10))
+  budget -= NOTICE_RESERVE
   const omitted = []
   for (const { rel, text } of readable) {
     const clipped =
@@ -757,7 +781,9 @@ export function buildAuditPrompt(root, options = {}) {
         ? `${text.slice(0, maxFileChars)}\n… [truncated: ${text.length - maxFileChars} more characters]\n`
         : text
     const section = `=== ${rel} ===\n${clipped}`
-    if (omitted.length > 0 || section.length > budget) {
+    // A file too large for what is left is cut, but smaller files after it
+    // still get their chance: order sets priority, not an all-or-nothing cutoff.
+    if (section.length > budget) {
       omitted.push(rel)
       continue
     }
@@ -767,14 +793,20 @@ export function buildAuditPrompt(root, options = {}) {
   // Every file cut for budget is named. A file missing with no explanation
   // reads exactly like a file that was checked and passed.
   if (omitted.length > 0) {
-    sections.push(
-      [
-        '=== omitted: prompt budget exhausted ===',
-        'These files exist but were NOT read and are NOT part of this audit:',
-        ...omitted.map((rel) => `  ${rel}`),
-        '',
-      ].join('\n')
-    )
+    const notice = [
+      '=== omitted: prompt budget exhausted ===',
+      'These files exist but were NOT read and are NOT part of this audit:',
+    ]
+    let used = notice.join('\n').length + 40
+    let listed = 0
+    for (const rel of omitted) {
+      if (used + rel.length + 3 > NOTICE_RESERVE) break
+      notice.push(`  ${rel}`)
+      used += rel.length + 3
+      listed += 1
+    }
+    if (listed < omitted.length) notice.push(`  (+${omitted.length - listed} more)`)
+    sections.push(`${notice.join('\n')}\n`)
   }
 
   return `${head.join('\n')}\n${sections.join('\n')}`

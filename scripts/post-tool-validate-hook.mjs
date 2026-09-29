@@ -131,7 +131,13 @@ export function isMemoryScoped(root, filePath, { foldCase = filesystemFoldsCase(
  * isMemoryScoped, so an edit reported as `agents.md` still selects findings
  * about `AGENTS.md` there.
  */
-export function selectFindings(findings, editedRel, { foldCase = process.platform === 'win32' } = {}) {
+export function selectFindings(
+  findings,
+  editedRel,
+  // Callers that know the root pass filesystemFoldsCase(root); without one,
+  // the same platform fallback filesystemFoldsCase uses.
+  { foldCase = process.platform === 'win32' || process.platform === 'darwin' } = {}
+) {
   const caseFold = folder(foldCase)
   const edited = caseFold(editedRel)
   const glossaryEdited = edited === caseFold(`${MEMORY_DIRNAME}/${GLOSSARY_FILENAME}`)

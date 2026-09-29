@@ -18,15 +18,15 @@ with four shared references and ten templates.
 
 **Verified:**
 
-- `node --test`: 450 passed, 0 failed, 15 skipped, on the working tree after
-  `af1f2f8`, 2026-09-29.
+- `node --test`: 458 passed, 0 failed, 15 skipped, on the working tree after
+  `1b243b1`, 2026-09-29.
 - `claude plugin validate . --strict` passed on the same tree.
-- Three audits ran on 2026-09-29 (Markdown system; code, hooks, packaging;
-  an independent re-audit of the day's changes). Every HIGH and MEDIUM
+- Four audits ran on 2026-09-29 (Markdown system; code, hooks, packaging;
+  an independent re-audit; a convergence audit of the re-audit's fixes). Every HIGH and MEDIUM
   finding is fixed with a test, except the release steps in `next-actions.md`
   and the items in `bugs-and-risks.md`.
-- Live headless runs of `init`, `sync`, and `handoff for codex:` on a sample
-  project; results in `acceptance-criteria.md`.
+- Live headless runs of all seven modes on a sample project; results in
+  `acceptance-criteria.md`.
 
 **Not verified:**
 
@@ -45,8 +45,8 @@ Status: working
 ### Current reality
 
 `scripts/project-state.mjs` (state probe, now with a `contract` block for the
-three governed contract files), `scripts/memory-validate.mjs` (ten checks,
-including `avoided-term`), `scripts/auditor-bridge.mjs` (Codex tier, subagent
+three governed contract files), `scripts/memory-validate.mjs` (eleven
+checks, including `avoided-term` and `glossary-format`), `scripts/auditor-bridge.mjs` (Codex tier, subagent
 fallback), and two Claude Code hooks. `AGENTS.md` is governed alongside the
 two `CLAUDE.md` forms by every component. The Codex manifest opts out of the
 hooks (decision 007).

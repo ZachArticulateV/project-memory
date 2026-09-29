@@ -11,8 +11,11 @@ Reproducibility: not applicable
 
 **Observed:**
 
-The Codex manifest, `skills/project-memory/agents/openai.yaml`, the Outside Claude Code section, and
-the Codex launch line are covered by structural tests only.
+The Codex manifest (including its hook opt-out),
+`skills/project-memory/agents/openai.yaml`, the Outside Claude Code section,
+and the Codex launch line are covered by structural tests and a reading of
+Codex source at c248f6d. A live Claude Code run of `handoff for codex:`
+printed a correct launch line; the Codex side has never run.
 
 **Affected components:**
 

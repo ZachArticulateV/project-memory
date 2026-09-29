@@ -24,6 +24,7 @@ import {
   CLAUDE_MD,
   CLAUDE_MD_LINE_SIGNAL,
   CLAUDE_MD_SCOPE,
+  DECISIONS_DIRNAME,
   GLOSSARY_FILENAME,
   MEMORY_DIRNAME,
   discoverMemory,
@@ -121,6 +122,8 @@ export function collectContract(absRoot) {
   const claudeCovered = claudeFiles.some((f) => f.section !== null || (f.importsAgentsMd && agentsCovered))
   const missing = []
   if (claudeFiles.length > 0 && !claudeCovered) missing.push(...claudeFiles.map((f) => f.path))
+  // No contract file at all is the worst case: no agent is pointed at memory.
+  if (files.every((f) => !f.present)) missing.push(CLAUDE_MD)
   if (agents.present && !agents.escapes && !agentsCovered) missing.push(AGENTS_MD)
 
   return {
@@ -145,10 +148,18 @@ export function collectContract(absRoot) {
 function computeStaleness(root, git, memory, options) {
   const isHistorical = (rel) =>
     memory.decisions.records.includes(rel) || rel.startsWith(`${MEMORY_DIRNAME}/archive/`)
-  // The glossary defines vocabulary, not implementation: a code change does not
-  // make a definition stale, so it is outside change-based staleness entirely.
-  const glossaryRel = `${MEMORY_DIRNAME}/${GLOSSARY_FILENAME}`
-  const allMemoryFiles = memory.markdownFiles.filter((rel) => rel !== glossaryRel)
+  // Outside change-based staleness entirely:
+  // - the glossary defines vocabulary, not implementation;
+  // - the index files are maps. Their references say where information lives,
+  //   and a change to the target does not make the map wrong (a removed
+  //   target is a broken reference, which the validator reports). Counting
+  //   them kept the session-start line firing on every release note edit.
+  const exempt = new Set([
+    `${MEMORY_DIRNAME}/${GLOSSARY_FILENAME}`,
+    `${MEMORY_DIRNAME}/INDEX.md`,
+    `${MEMORY_DIRNAME}/${DECISIONS_DIRNAME}/INDEX.md`,
+  ])
+  const allMemoryFiles = memory.markdownFiles.filter((rel) => !exempt.has(rel))
 
   if (git === null) {
     return {

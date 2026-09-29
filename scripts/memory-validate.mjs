@@ -415,8 +415,10 @@ export function parseGlossary(text) {
     const bare = line.replace(/^[-*]\s+/, '')
     const heading = /^\*\*(.+?)\*\*\s*:/.exec(bare) ?? /^\*\*(.+?):\*\*/.exec(bare)
     if (heading) {
-      term = heading[1].trim()
-      terms.push(term)
+      // A bold run with nothing in it (`** **:`) is not a term; kept, it would
+      // become an empty pattern that matches everywhere without advancing.
+      term = heading[1].trim() === '' ? null : heading[1].trim()
+      if (term !== null) terms.push(term)
       inAvoid = false
       return
     }
@@ -425,7 +427,7 @@ export function parseGlossary(text) {
       inAvoid = false
       return
     }
-    const avoid = /^[_*]Avoid[_*]\s*:\s*(.*)$/.exec(line)
+    const avoid = /^[_*]Avoid[_*]\s*:\s*(.*)$/.exec(bare)
     if (avoid) {
       if (term === null) {
         unattributed.push({ line: index + 1, text: line })
@@ -433,11 +435,16 @@ export function parseGlossary(text) {
         return
       }
       addAliases(avoid[1])
-      inAvoid = true
+      inAvoid = /[,;]\s*$/.test(avoid[1])
       return
     }
-    // A wrapped alias list continues until a blank line or the next term.
-    if (inAvoid && term !== null) addAliases(line)
+    // A wrapped alias list continues only while the previous line ended with a
+    // separator, so a definition written straight after the list is not read
+    // as more aliases.
+    if (inAvoid && term !== null) {
+      addAliases(line)
+      inAvoid = /[,;]\s*$/.test(line)
+    }
   })
   return { terms, aliases, unattributed }
 }
@@ -477,7 +484,13 @@ export function findAvoidedTerms(text, glossary) {
   for (const term of terms) {
     const re = new RegExp(phrasePattern(term), 'giu')
     let m
-    while ((m = re.exec(prose)) !== null) canonical.push([m.index, m.index + m[0].length])
+    while ((m = re.exec(prose)) !== null) {
+      if (m[0] === '') {
+        re.lastIndex += 1
+        continue
+      }
+      canonical.push([m.index, m.index + m[0].length])
+    }
   }
   const insideCanonical = (from, to) => canonical.some(([s, e]) => from >= s && to <= e)
 
@@ -487,6 +500,10 @@ export function findAvoidedTerms(text, glossary) {
   const found = []
   let match
   while ((match = pattern.exec(prose)) !== null) {
+    if (match[0] === '') {
+      pattern.lastIndex += 1
+      continue
+    }
     if (insideCanonical(match.index, match.index + match[0].length)) continue
     const group = match.slice(1).findIndex((g) => g !== undefined)
     const { alias, term } = ordered[group]

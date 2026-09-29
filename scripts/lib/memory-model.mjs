@@ -221,9 +221,11 @@ export function looksLikePath(token) {
   // A module or package specifier such as `node:fs/promises` or `npm:left-pad`:
   // a scheme with no `//`. A one-letter scheme is a Windows drive, handled below.
   if (/^[a-z][a-z0-9+.-]+:(?!\/\/)/i.test(t)) return false
-  // A code expression, e.g. `spawnSync(process.execPath, [...])`: paths do not
-  // carry call parentheses, braces, quotes, assignments, or argument commas.
-  if (/[(){}'=,;]/.test(t)) return false
+  // A code expression, e.g. `spawnSync(process.execPath, [...])`: a call
+  // (a word followed by a parenthesis), braces, quotes, assignments, or
+  // argument commas. Bare parentheses stay legal, since route groups such as
+  // `app/(auth)/login/page.tsx` are real paths.
+  if (/\w\(|[{}'=;]|,\s/.test(t)) return false
   if (t.startsWith('#') || t.startsWith('@')) return false // anchor or import sigil
   if (t.startsWith('/') || /^[A-Za-z]:[\\/]/.test(t)) return false // absolute: not a repo reference
   if (t.startsWith('~')) return false // home-relative: machine-local, not repo content

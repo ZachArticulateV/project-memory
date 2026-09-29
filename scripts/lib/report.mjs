@@ -123,9 +123,15 @@ export function renderStateText(state) {
     )
   } else {
     out.push(`Staleness: ${state.staleness.staleFiles.length} memory file(s) behind referenced changes`)
-    for (const file of state.staleness.files.filter((f) => f.stale)) {
+    for (const file of state.staleness.files.filter((f) => f.stale && !f.historical)) {
       const paths = file.changes.map((c) => c.path).join(', ')
       out.push(bullet(`${file.path} — changed since last memory commit: ${paths}`))
+    }
+    // History is reported apart: decision records and the archive are never
+    // rewritten, so a moved evidence path is information for audit, not a
+    // reason to sync.
+    if (state.staleness.historicalBehind?.length > 0) {
+      out.push(bullet(`history naming changed paths (not stale; see audit): ${state.staleness.historicalBehind.length} file(s)`))
     }
     // R34: silence about a claim is not a healthy verdict about it. Here the
     // reasons differ per file, so each one is worth naming.

@@ -61,6 +61,15 @@ Prepared on this branch; the date is set when it is tagged.
 
 ### Fixed
 
+- **An empty glossary term (`** **:`) hung the validator** in an endless
+  zero-width match, which would stall CI and time out the post-edit hook.
+- **Route-group paths with parentheses** (`app/(auth)/login/page.tsx`) are
+  checked again; only call syntax marks a span as code.
+- **Memory with no contract file at all** reports the missing pointer.
+- **A large archive no longer pushes core memory out of the audit prompt**:
+  files are read in priority order (startup set first, archive last), smaller
+  files still fit after a large one is cut, and the omitted-files notice is
+  budgeted.
 - **Glossary format is stated and checked.** The schema names the accepted
   term and `_Avoid_` forms; wrapped alias lists, bullet terms, and quoted
   aliases parse; an alias that contains a canonical term still matches; word
@@ -106,6 +115,22 @@ Prepared on this branch; the date is set when it is tagged.
 
 ### Changed
 
+- **Scripts and hooks find the project root from a subdirectory**: the nearest
+  ancestor holding `memory/INDEX.md`, else the Git root. `init` states the
+  resolved root and asks when it differs from where you are.
+- **A directory argument that does not exist exits 2** (usage error) instead of
+  0 with "no memory". A CI job pointing at a mistyped path now fails.
+- **The index files and the glossary are outside staleness.** They point and
+  define rather than claim, so a change to a file they name no longer flags
+  them.
+- **JSON: decision records and the archive moved from `staleness.staleFiles`
+  to `staleness.historicalBehind`.** Consumers of `staleFiles` see only memory
+  a sync can fix.
+- **JSON: `contract` block** in the probe output (per-file presence, size,
+  containment, memory section, `missingSection`, `sectionsMatch`), with
+  `contract-section-missing` and `contract-sections-differ` signals.
+- **`(new)` after a backticked path** marks a file the work will create, so
+  the validator does not report it as broken.
 - Handoff redaction covers personal data, not only secret values.
 - The skill description now lists one trigger per mode (742 to 601
   characters), since it loads in every session.

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -767,4 +767,36 @@ test('version strings are not path references', () => {
   })
   cleanupAfter(test, root)
   assert.deepEqual(findingsOf(validateMemory(root), 'broken-reference'), [])
+})
+
+test('an empty glossary term cannot hang the validator', () => {
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/glossary.md': '# Glossary\n\n** **: nothing\n_Avoid_: x\n\n**Workstream**:\nA branch.\n_Avoid_: lane\n',
+    'memory/next-actions.md': tree['memory/next-actions.md'] + '\nThe lane.\n',
+  })
+  cleanupAfter(test, root)
+  const run = spawnSync(process.execPath, [VALIDATOR, '--json', root], { encoding: 'utf8', timeout: 5000 })
+  assert.notEqual(run.signal, 'SIGTERM', 'the validator did not finish within 5s')
+  const findings = JSON.parse(run.stdout).findings
+  assert.ok(findings.some((f) => f.check === 'avoided-term' && f.alias === 'lane'))
+  // The orphaned _Avoid_ under the empty term is reported, not enforced.
+  assert.ok(findings.some((f) => f.check === 'glossary-format'))
+})
+
+test('route-group paths with parentheses are still checked', () => {
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/next-actions.md': tree['memory/next-actions.md'] + '\nSee `app/(auth)/signup/page.tsx`.\n',
+  })
+  cleanupAfter(test, root)
+  const refs = findingsOf(validateMemory(root), 'broken-reference').map((f) => f.reference)
+  assert.deepEqual(refs, ['app/(auth)/signup/page.tsx'])
+})
+
+test('bulleted _Avoid_ lines parse, and a definition after the list is not read as aliases', () => {
+  const g = '- **Invoice**: a bill.\n- _Avoid_: bill, statement\nThe document sent after an order ships, per customer.\n'
+  const { aliases, unattributed } = parseGlossary(g)
+  assert.deepEqual([...aliases.keys()].sort(), ['bill', 'statement'])
+  assert.deepEqual(unattributed, [])
 })

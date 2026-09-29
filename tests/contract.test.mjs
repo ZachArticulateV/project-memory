@@ -159,9 +159,11 @@ test('a memory file symlinked outside the repository is reported, never read', (
 
 import { commitAll, gitAvailable, initRepo } from './fixtures/build.mjs'
 
-test('the glossary is outside change-based staleness', { skip: !gitAvailable() && 'git unavailable' }, () => {
+test('the glossary and the index files are outside change-based staleness', { skip: !gitAvailable() && 'git unavailable' }, () => {
+  const base = completeMemoryTree()
   const root = makeFixture({
-    ...completeMemoryTree(),
+    ...base,
+    'memory/INDEX.md': base['memory/INDEX.md'] + '\nThe cache lives in `src/cache.mjs`.\n',
     'src/cache.mjs': 'export const a = 1\n',
     'memory/glossary.md': '# Glossary\n\n## Language\n\n**Cache**:\nThe warm store, see `src/cache.mjs`.\n',
   })
@@ -175,6 +177,9 @@ test('the glossary is outside change-based staleness', { skip: !gitAvailable() &
   assert.ok(!staleness.staleFiles.includes('memory/glossary.md'), JSON.stringify(staleness.staleFiles))
   assert.ok(!staleness.files.some((f) => f.path === 'memory/glossary.md'))
   assert.ok(!staleness.unchecked.some((u) => u.path === 'memory/glossary.md'))
+  // The index is a map: its pointer at src/cache.mjs does not go stale.
+  assert.ok(!staleness.staleFiles.includes('memory/INDEX.md'))
+  assert.ok(!staleness.files.some((f) => f.path === 'memory/INDEX.md'))
 })
 
 // --- project root discovery ---------------------------------------------------
@@ -304,4 +309,31 @@ test('the audit prompt keeps contract files under a tight budget and names every
   assert.match(prompt, /AGENTS_MARKER_7f3c/)
   assert.match(prompt, /omitted: prompt budget exhausted/)
   assert.match(prompt, /memory\/archive\/f5\.md/)
+})
+
+// --- convergence audit --------------------------------------------------------
+
+test('a large archive never pushes core memory out of the audit prompt, and the prompt stays in budget', () => {
+  const tree = completeMemoryTree()
+  for (let i = 0; i < 200; i += 1) tree[`memory/archive/archived-file-${i}.md`] = `# A\n${'x'.repeat(5000)}\n`
+  const root = makeFixture({ ...tree, 'CLAUDE.md': withSection('Claude') })
+  cleanupAfter(test, root)
+
+  for (const max of [20000, 60000]) {
+    const prompt = buildAuditPrompt(root, { maxPromptChars: max })
+    const read = [...prompt.matchAll(/^=== (.+) ===$/gm)].map((m) => m[1])
+    for (const core of ['memory/INDEX.md', 'memory/current-state.md', 'memory/handoff.md', 'memory/next-actions.md']) {
+      assert.ok(read.includes(core), `${core} was cut at maxPromptChars ${max}`)
+    }
+    assert.ok(prompt.length <= max, `prompt is ${prompt.length} chars at maxPromptChars ${max}`)
+    assert.match(prompt, /\(\+\d+ more\)|memory\/archive\/archived-file-199\.md/)
+  }
+})
+
+test('memory with no contract file at all reports the missing pointer', () => {
+  const root = makeFixture(completeMemoryTree())
+  cleanupAfter(test, root)
+  const state = collectProjectState(root)
+  assert.deepEqual(state.contract.missingSection, ['CLAUDE.md'])
+  assert.ok(state.signals.some((s) => s.id === 'contract-section-missing'))
 })

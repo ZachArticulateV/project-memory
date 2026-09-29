@@ -50,7 +50,11 @@ unknown belongs in prose as an explicit unknown, not as an unrendered token.
 ## References
 
 A path in a code span or a link target is a reference, and the validator
-checks that it exists. A file the work has not created yet is marked `(new)`
+checks that it exists. A reference is also a staleness trigger: when the path
+changes after the memory file was last committed, the probe reports the file
+as behind. Reference a path when a change to it should prompt a re-check of
+the claim beside it. The index files and the glossary are exempt, because
+they point and define rather than claim. A file the work has not created yet is marked `(new)`
 right after the span, as in ``add `test/cli.test.mjs` (new)``, so a plan is
 not reported as a broken link while a mistyped existing path still is.
 

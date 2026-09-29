@@ -147,12 +147,23 @@ anywhere, so a branch name or a path can never become a command.
 
 **`scripts/project-state.mjs`** — the probe. Emits observed facts as JSON
 (`--json`) or human text, and **always exits 0** except on a usage error, which
-exits 2. Absent memory is a state, not a failure.
+exits 2. Absent memory is a state, not a failure; a directory argument that
+does not exist is a usage error, so a mistyped path in CI cannot pass.
+
+With no directory argument, both entry points (and both hooks) resolve the
+project root from the working directory: the nearest ancestor holding
+`memory/INDEX.md`, else the Git root, else the directory itself. A run from a
+subdirectory therefore sees the project's tree.
 
 It reports: whether `memory/` exists and which core files are present; Git
 branch, `HEAD`, worktree list, and the full working-tree change list including
 untracked files; which handoff is active and whether it belongs to this branch;
-`CLAUDE.md` size against a 200-line signal; and change-based staleness.
+each governed contract file (`contract`: presence, size against a 200-line
+signal, containment, whether it carries the memory section, `missingSection`
+per harness, `sectionsMatch`); and change-based staleness. Decision records and
+the archive are never rewritten, so when code they name has moved they are
+listed in `staleness.historicalBehind`, never in `staleFiles`, which is the
+only list the session-start hook reads.
 
 **Staleness is computed from change, never from elapsed time.** No clock is read
 anywhere in the codebase. For each committed memory file, the probe finds the

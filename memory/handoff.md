@@ -2,8 +2,8 @@
 
 Updated: 2026-09-29
 Branch: claude/dazzling-cori-d3zw4n
-HEAD: af1f2f8
-Working tree: version 1.1.0 bump, doc fixes, and this memory sync, uncommitted at time of writing
+HEAD: 1b243b1
+Working tree: convergence-audit fixes and this memory sync, uncommitted at time of writing
 Next session focus: release 1.1.0
 
 ## Objective
@@ -15,12 +15,13 @@ this repository's own memory, and the onboarding docs.
 
 - Benchmark (`a6dc528` to `bc1d945`), coherence audit fixes (`2010a4e` to
   `092fdd5`), onboarding docs (`18ed66e`), live-run fixes (`205cedd` to
-  `ba1d13e`), re-audit fixes (`84c44e9` to `af1f2f8`).
+  `ba1d13e`), re-audit fixes (`84c44e9` to `368b87e`), live-run fixes for
+  every mode (`892dd28` to `1b243b1`), convergence-audit fixes (this commit).
 - Both manifests and the changelog at 1.1.0.
 
 ## Verified
 
-- `node --test`: 450 passed, 0 failed, 15 skipped, 2026-09-29.
+- `node --test`: 458 passed, 0 failed, 15 skipped, 2026-09-29.
 - `claude plugin validate . --strict`: passed.
 - `node scripts/memory-validate.mjs` on this tree: no errors.
 

@@ -7,8 +7,8 @@ Each item names an observable outcome. "Improve the backend" is not an action.
 
 ## Now
 
-- [ ] Walk through `docs/quickstart.md` on a fresh sample repository and fix every step that does not match what happens
-  - Done when: each numbered step produced the described result in a real session, recorded in `acceptance-criteria.md`
+- [ ] Walk through `docs/quickstart.md` interactively on a fresh sample repository and fix every step that does not match what happens
+  - Done when: each numbered step produced the described result in an interactive session (headless runs already covered every mode), recorded in `acceptance-criteria.md`
   - Out of scope: rewriting the advanced guide
 
 ## Next
