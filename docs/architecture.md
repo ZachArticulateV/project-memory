@@ -393,6 +393,11 @@ change.
 metadata for two ecosystems, so one publish serves both. A test guards the
 fields that must not drift between them.
 
+`skills/project-memory/agents/openai.yaml` carries the Codex skill-picker
+metadata. The skill is model-invoked in both harnesses, so it sets no
+`allow_implicit_invocation` policy; a test fails if the two harnesses ever
+disagree about who may invoke it.
+
 ## File tree
 
 ### The plugin — the reusable structure
@@ -400,6 +405,7 @@ fields that must not drift between them.
 ```text
 project-memory/
 ├── .claude-plugin/plugin.json        Claude Code manifest
+├── .codex-plugin/plugin.json         Codex manifest (same metadata)
 ├── .codex-plugin/plugin.json         Codex manifest, same metadata
 ├── .github/workflows/verify.yml      suite on Windows + Ubuntu, manifest --strict
 ├── README.md
@@ -847,6 +853,19 @@ Structural changes are reported rather than presented as a cleanup. The memory
 section is added with literal paths. When `CLAUDE.md` is oversized, the audit
 points at `/doctor`, which already proposes trims against the live file with the
 user in the loop, rather than producing a competing set of cuts.
+
+**Codex.** A Codex session in the same repository reads `AGENTS.md`, so `init`
+writes the same memory section there when the project has one (or when the
+user asks for one), and the validator, the post-edit hook, and the writing rule
+all govern `AGENTS.md` alongside the two `CLAUDE.md` forms. Codex substitutes
+none of the skill's variables, so `SKILL.md` carries a short "Outside Claude
+Code" section telling the agent how to resolve `$0` and `${CLAUDE_SKILL_DIR}`
+itself. That is instruction, not substitution. Codex also runs none of the
+Claude Code hooks, so the session-start signal and the post-edit validation are
+absent there; `status` and each mode's closing validation stand in for them.
+`handoff` can target Codex: it prints a one-line `codex "..."` launch command
+whose prompt names `memory/INDEX.md` and the handoff path explicitly, because
+the Codex session will not find them through `CLAUDE.md`.
 
 **Platform.** Every executable the plugin ships is Node — no shell script, no
 Python, no compiled binary. The two hook commands are `node "<path>"` strings the

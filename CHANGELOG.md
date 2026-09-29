@@ -29,6 +29,14 @@ All notable changes to this plugin are documented here. Format follows
 - **`avoided-term` validator check** (warning): flags prose in memory that uses
   a word the glossary rejected. Code spans, fences, decision records, and the
   archive are exempt.
+- **Codex parity.** `skills/project-memory/agents/openai.yaml` for the Codex
+  skill picker; an "Outside Claude Code" section in `SKILL.md` telling a
+  non-Claude agent how to resolve `$0` and `${CLAUDE_SKILL_DIR}`; `init` writes
+  the memory section into `AGENTS.md` too; `handoff` prints a one-line,
+  quoting-safe `codex "..."` or `claude --bg` launch line when the next session
+  is another agent, and never runs it.
+- **`AGENTS.md` is governed.** The validator scans it, the post-edit hook fires
+  on it, and the writing rule loads for it.
 - **`docs/benchmark/mattpocock-skills.md`**: the adopted and rejected patterns
   from mattpocock/skills, with a scorecard.
 

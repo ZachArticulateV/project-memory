@@ -31,9 +31,10 @@ iteration that adopted it. `-` means the pattern was absent.
 | Domain | Ubiquitous-language glossary with `_Avoid_` aliases | - | Adopted, plus a validator check | 3 |
 | Domain | ADR only when hard to reverse, surprising, and a real trade-off | Partial | Adopted schema-wide | 2, 3 |
 | Domain | Create docs lazily, never scaffold empty | Adopted | Adopted | - |
-| Codex | Per-skill `agents/openai.yaml` with invocation policy | - | Planned | 4 |
-| Codex | Harness-neutral pointer (`AGENTS.md`) to the same memory | - | Planned | 4 |
-| Codex | Clean handoff into a Codex session | - | Planned | 4 |
+| Codex | Per-skill `agents/openai.yaml` with invocation policy | - | Adopted, parity tested | 4 |
+| Codex | Harness-neutral pointer (`AGENTS.md`) to the same memory | - | Adopted, validated and hooked | 4 |
+| Codex | Clean handoff into a Codex session | - | Adopted (launch line) | 4 |
+| Codex | Skill runs outside Claude Code (variables resolved by the agent) | - | Adopted | 4 |
 | Project mgmt | Agent brief: behavioral, durable, testable, explicit out-of-scope | Partial | Planned | 5 |
 | Project mgmt | Out-of-scope record for rejected ideas | Partial (brief) | Planned | 5 |
 | Writing | Context pointers, leading words, no-op pruning, positive prompting | Partial | Planned | 5 |
@@ -59,7 +60,7 @@ These are deliberate and stay:
 | `CONTEXT.md` at the repository root | Memory lives under `memory/` so one directory holds all of it. The glossary is `memory/glossary.md`. |
 | `CONTEXT-MAP.md` for multi-context repos | Deferred until a real multi-context project needs it. One glossary per memory tree covers every repo this plugin currently serves. |
 | ADRs under `docs/adr/` | Decision records already live in `memory/decisions/` with supersede links. |
-| Background-agent launch (`claude --bg`) as the handoff | Stays in-progress upstream. The resume prompt covers the same need without a harness-specific flag. |
+| Handoff launches the next agent itself (`claude --bg`) | The launch line is printed, never run. Starting a second writer is the user's call. |
 
 ## Iteration log
 
@@ -137,3 +138,37 @@ Changed files: `templates/glossary.md` (new), `templates/index.md`,
 `references/memory-schema.md`, `references/init.md`, `references/sync.md`,
 `references/grill.md`, `rules/memory-writing.md`,
 `scripts/memory-validate.mjs`, `scripts/lib/memory-model.mjs`, docs, tests.
+
+### Iteration 4: Codex handoffs
+
+Adopted from upstream's dual-harness packaging (`agents/openai.yaml`,
+`.agents/invocation.md`) and `claude-handoff`:
+
+- `agents/openai.yaml` beside `SKILL.md`, with a test that fails if Claude Code
+  and Codex ever disagree about who may invoke the skill.
+- `AGENTS.md` joins the governed contract: `init` writes the same memory
+  section into it, and the validator, post-edit hook, and writing rule cover it.
+  Without this a Codex session opens the repository blind, because Codex does
+  not read `CLAUDE.md`.
+- `SKILL.md` gains "Outside Claude Code": how a non-Claude agent resolves `$0`
+  and `${CLAUDE_SKILL_DIR}`, which Codex does not substitute (an unset variable
+  turned every bundled script call into a path that does not exist).
+- `handoff for codex: <focus>` prints a one-line launch command,
+  `codex "<resume prompt>"`, quoting-safe in bash and PowerShell, whose prompt
+  names `memory/INDEX.md` and the handoff path explicitly. The same slot
+  prints `claude --bg --name ...` for a background Claude Code session.
+
+Beyond upstream: upstream defers a native Codex plugin (its ADR 0002) and its
+handoff is Claude-only. This plugin already shipped a Codex manifest; it now
+also makes the memory reachable and the skill runnable from a Codex session,
+and tests both.
+
+Kept deliberately: the launch line is printed, not executed. Upstream's
+`claude-handoff` launches the agent itself; here a second live session could
+write memory while the first still can, which breaks many-readers-one-writer.
+
+Changed files: `agents/openai.yaml` (new), `SKILL.md`, `references/init.md`,
+`references/handoff.md`, `templates/claude-md-section.md`,
+`scripts/lib/memory-model.mjs`, `scripts/memory-validate.mjs`,
+`hooks/hooks.json`, `rules/memory-writing.md`, both manifests, docs,
+`tests/codex.test.mjs` (new), `tests/hooks.test.mjs`.

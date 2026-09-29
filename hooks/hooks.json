@@ -33,6 +33,12 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/post-tool-validate-hook.mjs\"",
             "timeout": 5,
             "if": "Edit(.claude/CLAUDE.md)"
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/post-tool-validate-hook.mjs\"",
+            "timeout": 5,
+            "if": "Edit(AGENTS.md)"
           }
         ]
       }

@@ -234,6 +234,9 @@ credential that reached memory; it does not make putting one there safe.
 - `codex` is optional. Without it, `audit` falls back to the bundled subagent.
   A recent Codex is needed for the tier to run at all: the invocation passes
   `--ignore-rules`, and a CLI that predates that flag rejects it and demotes.
+- Under Codex, the hooks do not run, and `${CLAUDE_SKILL_DIR}` and `$0` are
+  resolved by the agent following an instruction in `SKILL.md`, not substituted
+  by the harness. Staleness is surfaced only when `status` is run.
 - The plugin depends on current Claude Code behavior for skills, hooks,
   path-scoped rules, and subagents. Those surfaces were verified against live
   documentation on 2026-08-08. A future release could change them; the hook

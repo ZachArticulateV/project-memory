@@ -14,6 +14,22 @@ repairs it.
 
 Memory is an orientation layer. It is never evidence that a feature works.
 
+## Outside Claude Code
+
+In Codex or another agent, nothing substitutes the variables this file uses.
+Read them this way:
+
+- `$0` is the first word of the user's request after the skill name, and
+  `$ARGUMENTS` is everything after the skill name.
+- `${CLAUDE_SKILL_DIR}` is the directory holding this `SKILL.md`. The bundled
+  scripts are at `../../scripts/` from it. Substitute the real path before
+  running a command; an unset variable expands to nothing and the command
+  fails.
+
+The session-start and post-edit hooks do not run there, so run `status` at the
+start of substantial work and let each mode's closing validation stand in for
+the edit hook.
+
 ## Routing
 
 The requested mode is `$0`. Follow these steps in order.

@@ -187,7 +187,22 @@ Verify before relying on: the retry path has no passing test yet.
 First step: run node --test tests/auth and confirm the timeout reproduces.
 ```
 
-Keep it under ten lines. The resume prompt is printed, not written to memory:
+When the next session is another agent, say so in the prompt and add one line
+for it. The focus names the target: `/project-memory handoff for codex: finish
+the refresh-token retry`.
+
+| Next session | Add |
+| --- | --- |
+| Codex | A launch line: `codex "<resume prompt as one line>"`. Codex reads `AGENTS.md`, not `CLAUDE.md`; if the project has no memory section in `AGENTS.md`, the resume prompt is the only pointer it gets, so it must name `memory/INDEX.md` and the handoff path explicitly |
+| A background Claude Code session | A launch line: `claude --bg --name "<short task name>" "<resume prompt as one line>"` |
+| A person | Nothing extra. The prompt is still what they paste into their agent |
+
+A launch line holds the resume prompt on one line with no double quotes, `$`,
+or backticks, so it survives both bash and PowerShell quoting unchanged. Print
+it; never run it. Starting another agent is the user's call, and a second
+session writing memory while this one still can breaks the one-writer rule.
+
+Keep the prompt under ten lines. The resume prompt is printed, not written to memory:
 the handoff file is the durable record, and a second copy of its contents in
 the same file would drift from the first.
 
@@ -206,3 +221,5 @@ the same file would drift from the first.
 - Restating a spec, decision, or issue instead of pointing at it.
 - Suggesting a command or skill the next session does not have.
 - Letting the focus upgrade an unverified claim because it matters to the focus.
+- Running a launch line instead of printing it.
+- A Codex resume prompt that relies on `CLAUDE.md` to find memory.

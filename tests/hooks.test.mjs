@@ -716,6 +716,7 @@ test('the PostToolUse entry is matched on Edit|Write and narrowed by single-rule
     'Edit(memory/**/*.md)',
     'Edit(CLAUDE.md)',
     'Edit(.claude/CLAUDE.md)',
+    'Edit(AGENTS.md)',
   ])
 
   for (const condition of conditions) {

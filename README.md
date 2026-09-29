@@ -27,6 +27,12 @@ minimal, retrievable, and sufficient.
 Adding the marketplace installs nothing on its own — it just makes the plugins
 listed there available. Install only the ones you want.
 
+**Codex:** the repository also ships `.codex-plugin/plugin.json`, so the same
+skill installs as a Codex plugin. `init` writes the memory pointer into
+`AGENTS.md` as well as `CLAUDE.md`, and `/project-memory handoff for codex:
+<focus>` prints a ready `codex "..."` launch line. The Claude Code hooks do not
+run under Codex; run `status` at the start of substantial work instead.
+
 ## Use
 
 ```bash

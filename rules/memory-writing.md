@@ -3,6 +3,7 @@ paths:
   - "memory/**/*.md"
   - "CLAUDE.md"
   - ".claude/CLAUDE.md"
+  - "AGENTS.md"
 ---
 
 # Writing Project Memory

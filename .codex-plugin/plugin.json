@@ -2,7 +2,7 @@
   "name": "project-memory",
   "displayName": "Project Memory",
   "version": "1.0.0",
-  "description": "A version-controlled project context architecture for Claude Code. Keeps project memory accurate, minimal, retrievable, and evidence-backed across fresh sessions, context resets, branches, and worktrees. One skill with seven modes (init, status, sync, handoff, grill, audit, repair), a deterministic Node core, two lightweight hooks, a path-scoped writing rule, and an independent auditor that runs on an external model so memory is never graded by the context that wrote it.",
+  "description": "A version-controlled project context architecture for Claude Code and Codex. Keeps project memory accurate, minimal, retrievable, and evidence-backed across fresh sessions, context resets, branches, and worktrees. One skill with seven modes (init, status, sync, handoff, grill, audit, repair), a deterministic Node core, two lightweight hooks, a path-scoped writing rule, and an independent auditor that runs on an external model so memory is never graded by the context that wrote it.",
   "author": {
     "name": "Zachary W.",
     "url": "https://articulatevision.com"
@@ -15,6 +15,7 @@
     "context-engineering",
     "project-context",
     "handoff",
+    "codex",
     "session-continuity",
     "audit",
     "evidence",

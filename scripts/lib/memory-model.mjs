@@ -28,9 +28,13 @@ import {
 export const MEMORY_DIRNAME = 'memory'
 export const CLAUDE_MD = 'CLAUDE.md'
 export const NESTED_CLAUDE_MD = '.claude/CLAUDE.md'
+/** Codex, and most non-Claude agents, read AGENTS.md instead of CLAUDE.md. */
+export const AGENTS_MD = 'AGENTS.md'
 
 /**
- * Every CLAUDE.md this system claims responsibility for.
+ * Every project contract file this system claims responsibility for: the two
+ * CLAUDE.md forms Claude Code reads, and the AGENTS.md Codex reads. init writes
+ * the memory pointer into whichever of them the project uses.
  *
  * One list, because three places used to disagree. rules/memory-writing.md
  * declares `CLAUDE.md` and `.claude/CLAUDE.md`; the validator scanned only the
@@ -39,7 +43,7 @@ export const NESTED_CLAUDE_MD = '.claude/CLAUDE.md'
  * an edit to `vendor/thing/CLAUDE.md` triggered a validation run about a file
  * nothing in this system governs.
  */
-export const CLAUDE_MD_SCOPE = [CLAUDE_MD, NESTED_CLAUDE_MD]
+export const CLAUDE_MD_SCOPE = [CLAUDE_MD, NESTED_CLAUDE_MD, AGENTS_MD]
 export const DECISIONS_DIRNAME = 'decisions'
 export const HANDOFF_FILENAME = 'handoff.md'
 export const HANDOFFS_DIRNAME = 'handoffs'
@@ -75,7 +79,7 @@ export const SCHEMA_OPTIONAL_TARGETS = new Set([
 
 /** True when an unresolved reference points at a schema-defined optional location. */
 export function isSchemaOptionalTarget(fromRelPosix, ref) {
-  if (!fromRelPosix.startsWith(`${MEMORY_DIRNAME}/`) && fromRelPosix !== CLAUDE_MD) return false
+  if (!fromRelPosix.startsWith(`${MEMORY_DIRNAME}/`) && !CLAUDE_MD_SCOPE.includes(fromRelPosix)) return false
   const target = ref.replace(/^\.\//, '').replace(new RegExp(`^${MEMORY_DIRNAME}/`), '').replace(/\/$/, '')
   return SCHEMA_OPTIONAL_TARGETS.has(target)
 }

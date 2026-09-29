@@ -176,7 +176,24 @@ automatically better. The goal is high-value persistent context.
 Report substantial structural changes rather than presenting a rewritten file as
 a cleanup.
 
-### 3f. Install the writing rule
+### 3f. Integrate AGENTS.md
+
+Codex and most non-Claude agents read `AGENTS.md`, not `CLAUDE.md`. A project
+used from both needs the memory pointer in both, or one of its agents opens the
+repository blind.
+
+| Situation | Action |
+| --- | --- |
+| `AGENTS.md` exists | Read all of it, sort it into the same five buckets as `CLAUDE.md`, and insert the memory section |
+| `CLAUDE.md` imports `AGENTS.md` (`@AGENTS.md`) | Insert the memory section into `AGENTS.md` only; the import carries it into Claude Code |
+| No `AGENTS.md`, and the user works in Codex or another agent | Offer to create one holding the memory section. Do not create it unasked |
+| No `AGENTS.md`, Claude Code only | Nothing |
+
+The section is the same rendered `templates/claude-md-section.md` in both files.
+Keep them identical: a pointer that differs between agents sends each to a
+different read-first list.
+
+### 3g. Install the writing rule
 
 Copy the plugin's `rules/memory-writing.md` into the project's
 `.claude/rules/memory-writing.md` so it travels with the project in version
@@ -261,7 +278,7 @@ node "${CLAUDE_SKILL_DIR}/../../scripts/memory-validate.mjs" --json
 
 Then tell the user, briefly: what was created, what was reconstructed rather than
 known, what you had to infer, what remains unresolved, and what you changed in
-`CLAUDE.md`.
+`CLAUDE.md` and `AGENTS.md`.
 
 Say plainly that structural validation is not semantic correctness — the tree is
 well-formed, which is not the same as accurate. `audit` is what checks accuracy.

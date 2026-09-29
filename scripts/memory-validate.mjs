@@ -233,7 +233,7 @@ function checkSize(text, rel, findings) {
   if (CLAUDE_MD_SCOPE.includes(rel)) {
     if (lines > CLAUDE_MD_LINE_SIGNAL) {
       findings.push(
-        finding('oversized-file', 'warning', rel, `${lines} lines (signal threshold ${CLAUDE_MD_LINE_SIGNAL}). CLAUDE.md loads on every session.`, {
+        finding('oversized-file', 'warning', rel, `${lines} lines (signal threshold ${CLAUDE_MD_LINE_SIGNAL}). ${rel} loads on every session.`, {
           lines,
           bytes,
           threshold: CLAUDE_MD_LINE_SIGNAL,
