@@ -47,6 +47,13 @@ structural failure rather than a stylistic one. Never invent a different
 placeholder syntax, and never leave a token behind as a note-to-self — an
 unknown belongs in prose as an explicit unknown, not as an unrendered token.
 
+## References
+
+A path in a code span or a link target is a reference, and the validator
+checks that it exists. A file the work has not created yet is marked `(new)`
+right after the span, as in ``add `test/cli.test.mjs` (new)``, so a plan is
+not reported as a broken link while a mistyped existing path still is.
+
 ## Templates
 
 Each row maps a template in `../templates/` to what it renders. This table is the

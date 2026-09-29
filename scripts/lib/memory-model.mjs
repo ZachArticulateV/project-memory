@@ -214,6 +214,12 @@ export function looksLikePath(token) {
   if (t === '') return false
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(t)) return false // URL
   if (/^(mailto|tel):/i.test(t)) return false
+  // A module or package specifier such as `node:fs/promises` or `npm:left-pad`:
+  // a scheme with no `//`. A one-letter scheme is a Windows drive, handled below.
+  if (/^[a-z][a-z0-9+.-]+:(?!\/\/)/i.test(t)) return false
+  // A code expression, e.g. `spawnSync(process.execPath, [...])`: paths do not
+  // carry call parentheses, braces, quotes, assignments, or argument commas.
+  if (/[(){}'=,;]/.test(t)) return false
   if (t.startsWith('#') || t.startsWith('@')) return false // anchor or import sigil
   if (t.startsWith('/') || /^[A-Za-z]:[\\/]/.test(t)) return false // absolute: not a repo reference
   if (t.startsWith('~')) return false // home-relative: machine-local, not repo content
@@ -240,11 +246,15 @@ export function extractReferences(text) {
   const prose = maskNonProse(text)
   const found = new Map()
 
-  const collect = (regex, kind) => {
+  // A code span followed by `(new)` names a file the work will create, e.g. a
+  // handoff step "add `test/cli.test.mjs` (new)". It is a plan, not a claim
+  // that the file exists, so it is not checked. Everything else still is.
+  const collect = (regex, kind, { plannedMarker = false } = {}) => {
     regex.lastIndex = 0
     let match
     while ((match = regex.exec(prose)) !== null) {
       const raw = match[1]
+      if (plannedMarker && /^\s*\(new\)/.test(prose.slice(match.index + match[0].length))) continue
       const cleaned = raw.trim().replace(/^\.\//, '').replace(/[#?].*$/, '')
       if (!looksLikePath(cleaned)) continue
       if (!found.has(cleaned)) {
@@ -253,7 +263,7 @@ export function extractReferences(text) {
     }
   }
 
-  collect(CODE_SPAN, 'code-span')
+  collect(CODE_SPAN, 'code-span', { plannedMarker: true })
   collect(MARKDOWN_LINK, 'link')
 
   return [...found.values()]

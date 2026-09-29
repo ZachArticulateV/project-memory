@@ -103,6 +103,11 @@ rejected; the validator flags it in memory prose (not in decision records, the
 archive, or the contract files). A new project-specific term goes into the glossary the
 moment it is settled, not at the end.
 
+## Mark files that do not exist yet
+
+A path in backticks is checked. A file the work will create is written with
+`(new)` right after it: ``add `test/cli.test.mjs` (new)``.
+
 ## Write delegated work as a brief
 
 A next action another agent will pick up states the behavior wanted, a `Done

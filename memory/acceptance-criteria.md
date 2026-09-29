@@ -36,6 +36,19 @@ The probe, validator, and hooks behave as `docs/architecture.md` describes.
 | The quickstart shows every mode | verified | `tests/doc-drift.test.mjs`, 434 passed on 2026-09-29 |
 | Following the quickstart alone produces a committed memory tree and a handoff | unverified | — |
 
+## Live model behavior
+
+Headless `claude -p` runs with `--plugin-dir` on a three-commit sample CLI
+project, 2026-09-29. Headless runs cannot answer questions or approve
+protected writes, so interactive behavior is not covered.
+
+| Criterion | Status | Evidence |
+| --- | --- | --- |
+| `init` reconstructs a brief, keeps hypotheses as hypotheses, and claims only observed runs | verified | Live run: brief marked reconstructed; bounds bug recorded with root cause Unknown; only the observed test run claimed |
+| `sync` does not resolve a bug whose fix is uncommitted and unexercised | verified | Live run: attempted fix recorded, entry left open, criterion left unverified |
+| `handoff for codex:` names memory files explicitly when there is no `AGENTS.md`, and prints rather than runs the launch line | verified | Live run output |
+| `init` installs the writing rule | failing | Protected `.claude/` write refused in a headless run; `init` now prints the copy command |
+
 ## Out of scope for completion
 
 - Live model-behavior evaluation of every playbook.

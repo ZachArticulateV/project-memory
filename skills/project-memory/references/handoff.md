@@ -132,7 +132,8 @@ checks the first three:
 
 - **Objective** — what this work was trying to accomplish.
 - **Continue here** — the next exact step, then the ones after it. Never empty,
-  and never "continue the work." If the next step is genuinely to decide
+  and never "continue the work." A file a step will create is marked `(new)`
+  after its path, so the validator does not report it as missing. If the next step is genuinely to decide
   something, the step is the decision and its inputs.
 - **Do not assume** — what the next session must not take on faith: unverified
   claims in this handoff, hypotheses that read like conclusions, state that was

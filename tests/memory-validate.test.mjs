@@ -691,3 +691,24 @@ test('a tree with no decision records yet does not warn about the decisions/ it 
   cleanupAfter(test, root)
   assert.deepEqual(findingsOf(validateMemory(root), 'broken-reference'), [])
 })
+
+test('module specifiers, code expressions, and files marked (new) are not path references', () => {
+  // All three came from a live handoff on a sample project.
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/next-actions.md':
+      tree['memory/next-actions.md'] +
+      [
+        '',
+        'Import `node:assert/strict` and `npm:left-pad`.',
+        "Spawn with `spawnSync(process.execPath, ['src/cli.mjs'], { env })`.",
+        'Add `test/cli.test.mjs` (new) beside the store test.',
+        'Fix the typo in `test/missing.test.mjs` first.',
+        '',
+      ].join('\n'),
+  })
+  cleanupAfter(test, root)
+
+  const refs = findingsOf(validateMemory(root), 'broken-reference').map((f) => f.reference)
+  assert.deepEqual(refs, ['test/missing.test.mjs'])
+})
