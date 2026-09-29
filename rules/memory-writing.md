@@ -97,9 +97,10 @@ Never overwrite another workstream's continuation state.
 
 ## Speak the glossary
 
-When `memory/glossary.md` exists, name every concept by its glossary term. A
-word listed under `_Avoid_` is a synonym the project has already rejected; the
-validator flags it. A new project-specific term goes into the glossary the
+When `memory/glossary.md` exists, name every concept by its glossary term in
+memory files. A word listed under `_Avoid_` is a synonym the project has already
+rejected; the validator flags it in memory prose (not in decision records, the
+archive, or the contract files). A new project-specific term goes into the glossary the
 moment it is settled, not at the end.
 
 ## Write delegated work as a brief

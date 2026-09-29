@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
-import { CHECKS, validateMemory } from '../scripts/memory-validate.mjs'
+import { CHECKS, findAvoidedTerms, parseGlossary, validateMemory } from '../scripts/memory-validate.mjs'
 import { STRUCTURAL_DISCLAIMER } from '../scripts/lib/report.mjs'
 import { findSecrets, parseFrontmatter } from '../scripts/lib/memory-model.mjs'
 import { cleanupAfter, claudeMd, completeMemoryTree, makeFixture, writeTree } from './fixtures/build.mjs'
@@ -597,4 +597,81 @@ test('naming a governed contract file that does not exist is vocabulary, not a b
   cleanupAfter(test, root)
 
   assert.deepEqual(findingsOf(validateMemory(root), 'broken-reference'), [])
+})
+
+// --- avoided-term edge cases (from the coherence audit) -----------------------
+
+
+const hits = (glossary, text) => findAvoidedTerms(text, parseGlossary(glossary)).map((h) => [h.match, h.term])
+
+test('an alias that is a word of a canonical term never flags the term itself', () => {
+  const g = '**Customer account**:\nA billed account.\n_Avoid_: account, customer\n\n**Card holder**:\nA person.\n\n**Account holder**:\nOwner.\n_Avoid_: holder\n'
+  assert.deepEqual(hits(g, 'Every Customer account is billed. A Card holder pays.\n'), [])
+  assert.deepEqual(hits(g, 'The account is billed by the holder.\n'), [
+    ['account', 'Customer account'],
+    ['holder', 'Account holder'],
+  ])
+})
+
+test('term lines with an inline definition or a colon inside the bold are parsed', () => {
+  const g = '**Order**: a purchase request.\n_Avoid_: purchase\n\n**Workstream:**\nA branch of work.\n_Avoid_: lane\n'
+  const { terms, aliases } = parseGlossary(g)
+  assert.deepEqual(terms, ['Order', 'Workstream'])
+  assert.equal(aliases.get('purchase').term, 'Order')
+  assert.equal(aliases.get('lane').term, 'Workstream')
+})
+
+test('an _Avoid_ line after an unparsed bold line is not credited to the previous term', () => {
+  const g = '**Job**:\nA unit of work.\n\n**Order** is a purchase.\n_Avoid_: purchase\n'
+  assert.equal(parseGlossary(g).aliases.has('purchase'), false)
+})
+
+test('aliases split on semicolons, drop markup and trailing periods, and match across a line break', () => {
+  const g = '**Workstream**:\nA branch.\n_Avoid_: *lane*; `track`, work stream.\n'
+  assert.deepEqual([...parseGlossary(g).aliases.keys()].sort(), ['lane', 'track', 'work stream'])
+  assert.deepEqual(hits(g, 'One work\nstream, one lane.\n'), [
+    ['work stream', 'Workstream'],
+    ['lane', 'Workstream'],
+  ])
+})
+
+test('link targets and URLs are not prose', () => {
+  const g = '**Customer**:\nA buyer.\n_Avoid_: client\n'
+  assert.deepEqual(hits(g, 'See [notes](../docs/client.md) and https://client.example.com today.\n'), [])
+  // Link TEXT is prose and still checked.
+  assert.deepEqual(hits(g, 'See [the client notes](../docs/notes.md).\n'), [['client', 'Customer']])
+})
+
+test('the longer of two overlapping aliases wins', () => {
+  const g = '**Handoff**:\nA pointer.\n_Avoid_: log\n\n**Handoff**:\nx\n_Avoid_: session log\n'
+  assert.deepEqual(hits(g, 'Keep a session log.\n'), [['session log', 'Handoff']])
+})
+
+test('a hyphenated or longer word containing an alias is not flagged', () => {
+  const g = '**Workstream**:\nA branch.\n_Avoid_: lane\n'
+  assert.deepEqual(hits(g, 'The fast-lane and lanes and lane-change stay.\n'), [])
+})
+
+test('decision records are exempt from avoided-term findings', () => {
+  const tree = completeMemoryTree()
+  const decision = Object.keys(tree).find((k) => /memory\/decisions\/\d+/.test(k))
+  const root = fixtureWith({
+    'memory/glossary.md': GLOSSARY,
+    [decision]: tree[decision] + '\nThe auth lane was chosen.\n',
+  })
+  cleanupAfter(test, root)
+  assert.deepEqual(findingsOf(validateMemory(root), 'avoided-term'), [])
+})
+
+test('findings per file are capped with one summary, and a large file stays fast', () => {
+  const many = Array.from({ length: 20000 }, (_, i) => `Line ${i} mentions the lane.`).join('\n')
+  const root = fixtureWith({ 'memory/glossary.md': GLOSSARY, 'memory/archive/x.md': '# x\n', 'memory/notes.md': `# Notes\n\n${many}\n` })
+  cleanupAfter(test, root)
+  const started = Date.now()
+  const found = findingsOf(validateMemory(root), 'avoided-term').filter((f) => f.artifact === 'memory/notes.md')
+  assert.ok(Date.now() - started < 4000, `took ${Date.now() - started}ms`)
+  assert.equal(found.length, 21)
+  assert.equal(found[20].more, 19980)
+  assert.equal(found[0].line, 3)
+  assert.equal(found[19].line, 22)
 })

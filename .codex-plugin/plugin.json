@@ -22,5 +22,12 @@
     "worktrees",
     "documentation"
   ],
-  "skills": "./skills/"
+  "skills": "./skills/",
+  "hooks": {},
+  "interface": {
+    "displayName": "Project Memory",
+    "shortDescription": "Evidence-backed project memory: init, status, sync, handoff, grill, audit, repair",
+    "developerName": "Zachary W.",
+    "category": "Productivity"
+  }
 }

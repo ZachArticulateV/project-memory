@@ -197,7 +197,7 @@ checks:
 | `secret-pattern` | error | A value-shaped credential appears in memory |
 | `duplicate-task` | warning | `next-actions.md` lists the same action twice |
 | `escapes-repository` | error | A memory path or `CLAUDE.md` resolves outside the checkout through a link |
-| `avoided-term` | warning | A memory file uses, in prose, a word `glossary.md` lists under `_Avoid_` (decision records and the archive exempt) |
+| `avoided-term` | warning | A memory file uses, in prose, a word `glossary.md` lists under `_Avoid_`. Code, links, URLs, and canonical terms are masked first; decision records and the archive are exempt; capped at 20 per file plus a summary |
 
 Two further codes can appear that the declared list does not name:
 `memory-missing` (info, when there is no tree to validate) and `unreadable-file`
@@ -865,9 +865,11 @@ user asks for one), and the validator, the post-edit hook, and the writing rule
 all govern `AGENTS.md` alongside the two `CLAUDE.md` forms. Codex substitutes
 none of the skill's variables, so `SKILL.md` carries a short "Outside Claude
 Code" section telling the agent how to resolve `$0` and `${CLAUDE_SKILL_DIR}`
-itself. That is instruction, not substitution. Codex also runs none of the
-Claude Code hooks, so the session-start signal and the post-edit validation are
-absent there; `status` and each mode's closing validation stand in for them.
+itself. That is instruction, not substitution. The Codex manifest sets `"hooks": {}`,
+because Codex otherwise loads `hooks/hooks.json` by default and those hooks do
+not work there (the post-edit hook cannot see which file `apply_patch` touched,
+and `${CLAUDE_PLUGIN_ROOT}` is not expanded under `cmd.exe`). So the
+session-start signal and the post-edit validation are absent under Codex; `status` and each mode's closing validation stand in for them.
 `handoff` can target Codex: it prints a one-line `codex "..."` launch command
 whose prompt names `memory/INDEX.md` and the handoff path explicitly, because
 the Codex session will not find them through `CLAUDE.md`.

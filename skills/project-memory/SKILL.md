@@ -26,8 +26,9 @@ Read them this way:
   running a command; an unset variable expands to nothing and the command
   fails.
 
-The session-start and post-edit hooks do not run there, so run `status` at the
-start of substantial work and let each mode's closing validation stand in for
+The plugin's Codex manifest opts out of its Claude Code hooks, so no
+session-start line or post-edit validation appears there: run `status` at the
+start of substantial work, and let each mode's closing validation stand in for
 the edit hook.
 
 ## Routing
