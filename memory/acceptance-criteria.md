@@ -17,10 +17,10 @@ The probe, validator, and hooks behave as `docs/architecture.md` describes.
 
 | Criterion | Status | Evidence |
 | --- | --- | --- |
-| Validator checks match the documented list | verified | `tests/doc-drift.test.mjs`, 458 passed on 2026-09-29 |
+| Validator checks match the documented list | verified | `tests/doc-drift.test.mjs`, 459 passed on 2026-09-29 |
 | Hooks fire for every governed contract file | verified | `tests/hooks.test.mjs`, same run |
 | A memory tree rendered from the templates validates clean | verified | This repository's `memory/`, validated with no findings on 2026-09-29 |
-| The probe reports every governed contract file | verified | `tests/contract.test.mjs`, 458 passed on 2026-09-29 |
+| The probe reports every governed contract file | verified | `tests/contract.test.mjs`, 459 passed on 2026-09-29 |
 
 ## Codex support
 
@@ -33,7 +33,7 @@ The probe, validator, and hooks behave as `docs/architecture.md` describes.
 
 | Criterion | Status | Evidence |
 | --- | --- | --- |
-| The quickstart shows every mode | verified | `tests/doc-drift.test.mjs`, 458 passed on 2026-09-29 |
+| The quickstart shows every mode | verified | `tests/doc-drift.test.mjs`, 459 passed on 2026-09-29 |
 | Following the quickstart alone produces a committed memory tree and a handoff | unverified | — |
 
 ## Live model behavior

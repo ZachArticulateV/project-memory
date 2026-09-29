@@ -21,7 +21,7 @@ this repository's own memory, and the onboarding docs.
 
 ## Verified
 
-- `node --test`: 458 passed, 0 failed, 15 skipped, 2026-09-29.
+- `node --test`: 459 passed, 0 failed, 15 skipped, 2026-09-29.
 - `claude plugin validate . --strict`: passed.
 - `node scripts/memory-validate.mjs` on this tree: no errors.
 

@@ -123,8 +123,8 @@ Prepared on this branch; the date is set when it is tagged.
 - **The index files and the glossary are outside staleness.** They point and
   define rather than claim, so a change to a file they name no longer flags
   them.
-- **JSON: decision records and the archive moved from `staleness.staleFiles`
-  to `staleness.historicalBehind`.** Consumers of `staleFiles` see only memory
+- **JSON: decision records, the archive, and the frozen brief moved from
+  `staleness.staleFiles` to `staleness.historicalBehind`.** Consumers of `staleFiles` see only memory
   a sync can fix.
 - **JSON: `contract` block** in the probe output (per-file presence, size,
   containment, memory section, `missingSection`, `sectionsMatch`), with

@@ -18,8 +18,8 @@ with four shared references and ten templates.
 
 **Verified:**
 
-- `node --test`: 458 passed, 0 failed, 15 skipped, on the working tree after
-  `1b243b1`, 2026-09-29.
+- `node --test`: 459 passed, 0 failed, 15 skipped, on the working tree after
+  `8ba1d96`, 2026-09-29.
 - `claude plugin validate . --strict` passed on the same tree.
 - Four audits ran on 2026-09-29 (Markdown system; code, hooks, packaging;
   an independent re-audit; a convergence audit of the re-audit's fixes). Every HIGH and MEDIUM

@@ -337,3 +337,20 @@ test('memory with no contract file at all reports the missing pointer', () => {
   assert.deepEqual(state.contract.missingSection, ['CLAUDE.md'])
   assert.ok(state.signals.some((s) => s.id === 'contract-section-missing'))
 })
+
+test('the frozen brief is history, never stale', { skip: !gitAvailable() && 'git unavailable' }, () => {
+  const base = completeMemoryTree()
+  const root = makeFixture({
+    ...base,
+    'docs/spec.md': '# Spec\n',
+    'memory/project-brief.md': base['memory/project-brief.md'] + '\nOriginal spec: `docs/spec.md`.\n',
+  })
+  cleanupAfter(test, root)
+  initRepo(root)
+  commitAll(root, 'initial')
+  writeFileSync(join(root, 'docs', 'spec.md'), '# Spec v2\n')
+  commitAll(root, 'revise spec')
+  const staleness = collectProjectState(root).staleness
+  assert.ok(!staleness.staleFiles.includes('memory/project-brief.md'))
+  assert.ok(staleness.historicalBehind.includes('memory/project-brief.md'))
+})

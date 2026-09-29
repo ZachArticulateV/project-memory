@@ -69,7 +69,8 @@ and is now gone changes both; an internal correction nobody could observe
 changes only the bug record.
 
 **`project-brief.md` does not move.** It records what the project was for at the
-outset. A direction change creates a decision record; it never edits the brief.
+outset. The probe lists it under `historicalBehind`, not as stale, for the same
+reason as decision records. A direction change creates a decision record; it never edits the brief.
 The brief moves only when it was reconstructed and an uncertainty in it resolved
 — and then it moves as a correction to the reconstruction, with the evidence.
 

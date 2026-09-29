@@ -146,8 +146,13 @@ export function collectContract(absRoot) {
  * evidence that another went stale would fire on every sync.
  */
 function computeStaleness(root, git, memory, options) {
+  // Never rewritten, so never syncable: decision records (append and
+  // supersede), the archive, and the brief (frozen; direction changes are
+  // decision records).
   const isHistorical = (rel) =>
-    memory.decisions.records.includes(rel) || rel.startsWith(`${MEMORY_DIRNAME}/archive/`)
+    memory.decisions.records.includes(rel) ||
+    rel.startsWith(`${MEMORY_DIRNAME}/archive/`) ||
+    rel === `${MEMORY_DIRNAME}/project-brief.md`
   // Outside change-based staleness entirely:
   // - the glossary defines vocabulary, not implementation;
   // - the index files are maps. Their references say where information lives,
@@ -286,7 +291,7 @@ function computeStaleness(root, git, memory, options) {
     })
   }
 
-  // Decision records and the archive are history: they are never rewritten, so
+  // Decision records, the archive, and the brief are history: never rewritten, so
   // a moved evidence path can never be "synced" away. Counting them as stale
   // made the session-start line permanent. They are reported apart, as
   // information for status and audit, and the hook reads only staleFiles.

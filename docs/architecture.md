@@ -160,8 +160,8 @@ branch, `HEAD`, worktree list, and the full working-tree change list including
 untracked files; which handoff is active and whether it belongs to this branch;
 each governed contract file (`contract`: presence, size against a 200-line
 signal, containment, whether it carries the memory section, `missingSection`
-per harness, `sectionsMatch`); and change-based staleness. Decision records and
-the archive are never rewritten, so when code they name has moved they are
+per harness, `sectionsMatch`); and change-based staleness. Decision records,
+the archive, and the frozen brief are never rewritten, so when code they name has moved they are
 listed in `staleness.historicalBehind`, never in `staleFiles`, which is the
 only list the session-start hook reads.
 
