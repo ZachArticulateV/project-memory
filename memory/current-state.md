@@ -64,7 +64,8 @@ hooks (decision 007).
 ## Active workstreams
 
 - Branch claude/dazzling-cori-d3zw4n: mattpocock/skills benchmark (done),
-  coherence audit (fixes landed), onboarding docs (next).
+  coherence audit (fixes landed), onboarding docs (written, not yet walked
+  through in a live session).
 
 ## Intentionally deferred
 

@@ -42,6 +42,11 @@ All notable changes to this plugin are documented here. Format follows
   file and line. A handoff of one such item carries both into its prompt.
 - **Rejected ideas** are decision records titled `Not: <idea>`, and the
   interview checks them before a settled question is re-opened.
+- **Onboarding in three layers.** `docs/quickstart.md` takes a new user from
+  install to a committed memory tree and a first handoff, with every term
+  defined; the README gains a Start here table; `docs/advanced.md` covers
+  worktrees, Codex, delegation, `grill`, the glossary, CI, audits, and team
+  practice. A test keeps the quickstart covering every mode.
 - **`docs/benchmark/mattpocock-skills.md`**: the adopted and rejected patterns
   from mattpocock/skills, with a scorecard.
 

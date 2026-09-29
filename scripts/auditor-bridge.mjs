@@ -115,7 +115,7 @@ export const EXIT_CODES = {
 
 export const AUDIT_DISCLAIMER =
   'These are an external evaluator’s findings, not applied changes. The auditor is read-only and ' +
-  'never writes to memory/, CLAUDE.md, or .claude/rules/ — only the coordinating session writes canonical ' +
+  'never writes to memory/, CLAUDE.md, AGENTS.md, or .claude/rules/ — only the coordinating session writes canonical ' +
   'memory. An empty findings list means nothing was provable, not that memory is correct.'
 
 // ---------------------------------------------------------------------------
@@ -1245,7 +1245,7 @@ const USAGE =
   '                          [--observations <file|->] [<dir>]\n\n' +
   'Runs the memory audit through Codex CLI, then reports that the bundled\n' +
   'memory-auditor subagent must be used. Read-only: this never writes to\n' +
-  'memory/, CLAUDE.md, or .claude/rules/.\n\n' +
+  'memory/, CLAUDE.md, AGENTS.md, or .claude/rules/.\n\n' +
   '--observations passes evidence the coordinating session gathered outside the\n' +
   'checkout — a test run it watched, runtime state, deployment facts — as a file\n' +
   'or on stdin. Without it the evaluator is told explicitly that none was given,\n' +

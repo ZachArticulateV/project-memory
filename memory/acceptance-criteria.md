@@ -29,6 +29,13 @@ The probe, validator, and hooks behave as `docs/architecture.md` describes.
 | The skill runs `status` in a live Codex session | unverified | — |
 | `handoff for codex:` output launches a Codex session that finds memory | unverified | — |
 
+## Onboarding
+
+| Criterion | Status | Evidence |
+| --- | --- | --- |
+| The quickstart shows every mode | verified | `tests/doc-drift.test.mjs`, 434 passed on 2026-09-29 |
+| Following the quickstart alone produces a committed memory tree and a handoff | unverified | — |
+
 ## Out of scope for completion
 
 - Live model-behavior evaluation of every playbook.

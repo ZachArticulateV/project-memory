@@ -7,10 +7,9 @@ Each item names an observable outcome. "Improve the backend" is not an action.
 
 ## Now
 
-- [ ] Write a beginner quickstart with a numbered first run and defined jargon
-  - Done when: a reader new to Claude Code can go from install to a committed memory tree and a handoff by following it alone
-  - Out of scope: re-explaining the architecture
-- [ ] Write an advanced guide covering worktrees, Codex, CI validation, and audit tiers
+- [ ] Walk through `docs/quickstart.md` on a fresh sample repository and fix every step that does not match what happens
+  - Done when: each numbered step produced the described result in a real session, recorded in `acceptance-criteria.md`
+  - Out of scope: rewriting the advanced guide
 
 ## Next
 

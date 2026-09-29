@@ -462,6 +462,8 @@ project-memory/
 │   │                                 live harness gated off by default
 │   └── fixtures/                     builders; every fixture lands in a temp dir
 └── docs/
+    ├── quickstart.md                 the beginner's first run
+    ├── advanced.md                   worktrees, Codex, CI, teams
     ├── architecture.md               this file
     ├── limitations.md                what the system does not guarantee
     ├── benchmark/                    patterns adopted from mattpocock/skills

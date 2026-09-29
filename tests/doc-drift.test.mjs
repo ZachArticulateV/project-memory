@@ -205,3 +205,22 @@ test('both governed CLAUDE.md paths appear in the writing rule', () => {
     assert.ok(rule.includes(claimed), `the writing rule does not claim ${claimed}`)
   }
 })
+
+test('the onboarding docs exist, are linked, and cover every mode', () => {
+  // The quickstart is the first thing a new user reads. A mode added to the
+  // router but missing here is a mode beginners never learn exists.
+  const readme = readFileSync(join(repoRoot, 'README.md'), 'utf8')
+  const quickstart = readFileSync(join(repoRoot, 'docs', 'quickstart.md'), 'utf8')
+  const advanced = readFileSync(join(repoRoot, 'docs', 'advanced.md'), 'utf8')
+  assert.match(readme, /\(docs\/quickstart\.md\)/)
+  assert.match(readme, /\(docs\/advanced\.md\)/)
+
+  const skillBody = readFileSync(join(repoRoot, 'skills', 'project-memory', 'SKILL.md'), 'utf8')
+  const modes = [...skillBody.matchAll(/^\| `([a-z]+)` \| `references\/\1\.md` \|$/gm)].map((m) => m[1])
+  assert.equal(modes.length, 7, `router playbook table changed shape: ${modes}`)
+  for (const mode of modes) {
+    assert.ok(quickstart.includes(`/project-memory ${mode}`), `quickstart never shows /project-memory ${mode}`)
+  }
+  // Codex guidance matches the shipped manifest: hooks opted out.
+  assert.match(advanced, /No hooks run/)
+})
