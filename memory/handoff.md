@@ -27,8 +27,8 @@ this repository's own memory, and the onboarding docs.
 
 ## Unverified
 
-- The CI workflow on GitHub: it runs on pull requests and pushes to main, and
-  neither has happened for this branch.
+- The CI workflow on GitHub: [pull request #1](https://github.com/ZachArticulateV/project-memory/pull/1) is open, and no run result has been
+  observed yet.
 - Anything under Codex in a live session.
 - The quickstart followed end to end in an interactive session.
 
@@ -52,8 +52,8 @@ Publishing needs steps outside this repository (see Continue here).
 
 ## Continue here
 
-1. Open a pull request from this branch and watch the CI run, including the
-   new memory-validation step.
+1. Watch the CI run on [pull request #1](https://github.com/ZachArticulateV/project-memory/pull/1), including the new memory-validation step, and
+   fix anything red.
 2. After merge, tag `v1.1.0` on main and set the changelog date.
 3. Bump the project-memory entry in the ZachArticulateV/claude-plugins
    marketplace to `v1.1.0` (a different repository).
