@@ -6,7 +6,10 @@
 // summary says so, so that a clean run is never quoted back as "memory
 // verified".
 
+import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
+
+import { findProjectRoot, isDirectory } from './fs-utils.mjs'
 
 export const STRUCTURAL_DISCLAIMER =
   'Structural validation only. A clean result means the memory tree is well-formed. ' +
@@ -37,7 +40,15 @@ export function parseCliArgs(argv, { extraOptions = {} } = {}) {
       allowPositionals: true,
       strict: true,
     })
-    return { values, positionals, root: values.cwd ?? positionals[0] ?? process.cwd(), error: null }
+    // An explicit directory is used exactly; with none, the root is found from
+    // the working directory, so a run from a subdirectory sees the project's tree.
+    const explicit = values.cwd ?? positionals[0]
+    // A mistyped directory is a usage error, not "no memory here": exit 0 on a
+    // path that does not exist would let a CI job validate nothing and pass.
+    if (explicit !== undefined && !isDirectory(resolve(explicit))) {
+      return { values, positionals, root: explicit, explicit: true, error: `not a directory: ${explicit}` }
+    }
+    return { values, positionals, root: explicit ?? findProjectRoot(process.cwd()), explicit: explicit !== undefined, error: null }
   } catch (err) {
     return { values: { json: false, help: false }, positionals: [], root: process.cwd(), error: err.message }
   }

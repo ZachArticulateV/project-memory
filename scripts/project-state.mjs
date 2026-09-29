@@ -130,6 +130,8 @@ export function collectContract(absRoot) {
  * evidence that another went stale would fire on every sync.
  */
 function computeStaleness(root, git, memory, options) {
+  const isHistorical = (rel) =>
+    memory.decisions.records.includes(rel) || rel.startsWith(`${MEMORY_DIRNAME}/archive/`)
   // The glossary defines vocabulary, not implementation: a code change does not
   // make a definition stale, so it is outside change-based staleness entirely.
   const glossaryRel = `${MEMORY_DIRNAME}/${GLOSSARY_FILENAME}`
@@ -141,6 +143,7 @@ function computeStaleness(root, git, memory, options) {
       reason: 'no-git',
       files: [],
       staleFiles: [],
+      historicalBehind: [],
       unchecked: allMemoryFiles.map((path) => ({ path, reason: 'no-git: change history is unavailable' })),
     }
   }
@@ -150,6 +153,7 @@ function computeStaleness(root, git, memory, options) {
       reason: 'no-commits',
       files: [],
       staleFiles: [],
+      historicalBehind: [],
       unchecked: allMemoryFiles.map((path) => ({ path, reason: 'no-commits: nothing to compare against' })),
     }
   }
@@ -252,16 +256,22 @@ function computeStaleness(root, git, memory, options) {
       lastCommit,
       references: uniqueRefs,
       stale,
+      historical: isHistorical(memoryPath),
       changes,
       uncheckedRefs,
     })
   }
 
+  // Decision records and the archive are history: they are never rewritten, so
+  // a moved evidence path can never be "synced" away. Counting them as stale
+  // made the session-start line permanent. They are reported apart, as
+  // information for status and audit, and the hook reads only staleFiles.
   return {
     checkable: true,
     reason: null,
     files,
-    staleFiles: files.filter((f) => f.stale).map((f) => f.path),
+    staleFiles: files.filter((f) => f.stale && !f.historical).map((f) => f.path),
+    historicalBehind: files.filter((f) => f.stale && f.historical).map((f) => f.path),
     unchecked,
   }
 }

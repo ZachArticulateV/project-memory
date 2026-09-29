@@ -279,13 +279,16 @@ test('a decision record reported behind is an evidence link, not a reversed deci
   cleanupAfter(t, root)
 
   const state = collectProjectState(root)
-  // The record cites the implementation, so the probe flags it when the
+  // The record cites the implementation, so the probe notices when the
   // implementation moves. Rewriting the record on that signal would destroy
   // history for a change that reversed nothing -- hence the playbook rule.
+  // Because no sync can clear it, it is reported as historical, never as
+  // stale: counting it stale made the session-start line permanent.
   assert.ok(
-    state.staleness.staleFiles.includes('memory/decisions/001-single-pass-verification.md'),
+    state.staleness.historicalBehind.includes('memory/decisions/001-single-pass-verification.md'),
     'the fixture no longer poses the decision-record case'
   )
+  assert.ok(!state.staleness.staleFiles.includes('memory/decisions/001-single-pass-verification.md'))
   assert.match(syncFlat, /A decision record is never rewritten/)
   assert.match(syncFlat, /That is a signal about the evidence link, not about the decision/)
 })

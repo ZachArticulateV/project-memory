@@ -27,7 +27,7 @@
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 
-import { isDirectory, joinRel } from './lib/fs-utils.mjs'
+import { findProjectRoot, isDirectory, joinRel } from './lib/fs-utils.mjs'
 import { MEMORY_DIRNAME } from './lib/memory-model.mjs'
 import { collectProjectState } from './project-state.mjs'
 
@@ -134,7 +134,7 @@ export function parsePayload(raw) {
 /** The project directory a payload points at, falling back to the process cwd. */
 export function payloadRoot(payload) {
   const cwd = payload?.cwd
-  return typeof cwd === 'string' && cwd.trim() !== '' ? cwd : process.cwd()
+  return findProjectRoot(typeof cwd === 'string' && cwd.trim() !== '' ? cwd : process.cwd())
 }
 
 /** Build the stdout JSON document for a non-null context string. */

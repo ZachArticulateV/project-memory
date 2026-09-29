@@ -49,6 +49,7 @@ Answer each of these, from observed facts:
 | Does a glossary exist? | `memory.optional[]` |
 | When was memory last committed? | `staleness.files[].lastCommit` |
 | Is memory behind relevant changes? | `staleness.staleFiles` |
+| Has code named by a decision record or the archive moved? | `staleness.historicalBehind`: information for `audit`, never a reason to sync |
 | What could not be checked at all? | `staleness.unchecked` |
 | Do unresolved placeholders or structural problems remain? | validator findings |
 

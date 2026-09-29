@@ -176,3 +176,37 @@ test('the glossary is outside change-based staleness', { skip: !gitAvailable() &
   assert.ok(!staleness.files.some((f) => f.path === 'memory/glossary.md'))
   assert.ok(!staleness.unchecked.some((u) => u.path === 'memory/glossary.md'))
 })
+
+// --- project root discovery ---------------------------------------------------
+
+import { spawnSync } from 'node:child_process'
+import { findProjectRoot } from '../scripts/lib/fs-utils.mjs'
+import { sessionContext } from '../scripts/session-status-hook.mjs'
+
+test('a session in a subdirectory finds the memory tree at the project root', () => {
+  const root = makeFixture({ ...completeMemoryTree(), 'src/lib/a.mjs': 'export {}\n' })
+  cleanupAfter(test, root)
+  const sub = join(root, 'src', 'lib')
+
+  assert.equal(findProjectRoot(sub), root)
+  // The hook used to tell this session to run init a second time.
+  assert.doesNotMatch(sessionContext(findProjectRoot(sub)) ?? '', /no `memory\/` directory/)
+})
+
+test('a source folder named memory is not mistaken for a memory tree', () => {
+  const root = makeFixture({ 'src/memory/cache.mjs': 'export {}\n', 'README.md': '# x\n' })
+  cleanupAfter(test, root)
+  mkdirSync(join(root, '.git'))
+  // Without memory/INDEX.md anywhere, the Git root is the project root.
+  assert.equal(findProjectRoot(join(root, 'src')), root)
+})
+
+test('a directory that does not exist is a usage error, not an empty result', () => {
+  for (const script of ['memory-validate.mjs', 'project-state.mjs']) {
+    const run = spawnSync(process.execPath, [join(repoRoot, 'scripts', script), join(tmpdir(), 'pm-no-such-dir-4c1e')], {
+      encoding: 'utf8',
+    })
+    assert.equal(run.status, 2, `${script} exited ${run.status}`)
+    assert.match(run.stderr, /not a directory/)
+  }
+})

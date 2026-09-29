@@ -73,9 +73,9 @@ outset. A direction change creates a decision record; it never edits the brief.
 The brief moves only when it was reconstructed and an uncertainty in it resolved
 — and then it moves as a correction to the reconstruction, with the evidence.
 
-**A decision record is never rewritten.** The probe can report a decision record
-as behind, because the record names the code that implemented it and that code
-changed. That is a signal about the evidence link, not about the decision. The
+**A decision record is never rewritten.** The probe lists a decision record under
+`staleness.historicalBehind` when the code it names has changed. It never counts
+it as stale, because no sync could clear it. That is a signal about the evidence link, not about the decision. The
 decision stayed the same; the implementation moved. If the decision itself was
 reversed, that is a new record and a `superseded` marker on the old one, which
 is a different action from editing.
