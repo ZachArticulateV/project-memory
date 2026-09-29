@@ -44,6 +44,11 @@ What happens next depends on the project:
   is for, who uses it, what "done" looks like, what is out of scope. Answer in
   plain words; "I don't know yet" is a fine answer and is recorded as such.
 
+Claude asks permission before writing two things outside `memory/`: your
+`CLAUDE.md`, and a small rule file at `.claude/rules/memory-writing.md` that
+loads only while memory is being edited. Approve both. If you decline the rule,
+`init` prints the one command that installs it later.
+
 When it finishes, it tells you what it created and what it had to guess.
 
 ## 3. Look at what it wrote

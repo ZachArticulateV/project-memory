@@ -59,6 +59,14 @@ All notable changes to this plugin are documented here. Format follows
 
 ### Fixed
 
+- **Found by running `init` live on a sample project:** a tree with no decision
+  records yet warned four times about the `decisions/` its own templates name
+  (now schema vocabulary, like `archive/`); the writing-rule copy into the
+  protected `.claude/` directory had no fallback (init now prints the exact
+  command); the probe printed `CLAUDE.md` twice.
+- **Path case follows the filesystem.** The post-edit hook folds case when the
+  disk is case-insensitive (probed at runtime), not only on Windows, so macOS
+  edits to a differently cased `AGENTS.md` are matched.
 - **Contract scope reached every component.** The probe reports each of
   `CLAUDE.md`, `.claude/CLAUDE.md`, and `AGENTS.md` (size, the memory section,
   whether copies agree, whether it escapes the checkout) and signals size for

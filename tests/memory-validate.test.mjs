@@ -675,3 +675,16 @@ test('findings per file are capped with one summary, and a large file stays fast
   assert.equal(found[0].line, 3)
   assert.equal(found[19].line, 22)
 })
+
+test('a tree with no decision records yet does not warn about the decisions/ it names', () => {
+  // Found in a live init: a small project had no decision passing the
+  // three-part test, and INDEX.md, next-actions.md, and the brief (all
+  // rendered from templates) still named decisions/, producing four warnings
+  // on day one.
+  const tree = completeMemoryTree()
+  for (const key of Object.keys(tree)) if (key.startsWith('memory/decisions/')) delete tree[key]
+  tree['memory/next-actions.md'] += '\nCompleted items move to `decisions/` or `archive/`.\n'
+  const root = makeFixture(tree)
+  cleanupAfter(test, root)
+  assert.deepEqual(findingsOf(validateMemory(root), 'broken-reference'), [])
+})

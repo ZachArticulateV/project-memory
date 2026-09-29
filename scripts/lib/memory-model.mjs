@@ -73,6 +73,9 @@ export const GLOSSARY_FILENAME = 'glossary.md'
  */
 export const SCHEMA_OPTIONAL_TARGETS = new Set([
   'archive',
+  // A project with no decision that passes the three-part test has no
+  // decisions/ yet, while INDEX.md, next-actions.md, and the brief still name it.
+  DECISIONS_DIRNAME,
   HANDOFFS_DIRNAME,
   ...OPTIONAL_MEMORY_FILES,
 ])

@@ -80,8 +80,11 @@ export function renderStateText(state) {
   }
 
   out.push('')
-  out.push(`CLAUDE.md: ${state.claudeMd.present ? `${state.claudeMd.lines} lines` : 'absent'}${state.claudeMd.large ? ' (large)' : ''}`)
-  if (state.contract) {
+  if (!state.contract) {
+    out.push(`CLAUDE.md: ${state.claudeMd.present ? `${state.claudeMd.lines} lines` : 'absent'}${state.claudeMd.large ? ' (large)' : ''}`)
+  } else {
+    const present = state.contract.files.filter((c) => c.present)
+    out.push(`Contract files: ${present.length === 0 ? 'none (no CLAUDE.md, .claude/CLAUDE.md, or AGENTS.md)' : present.length}`)
     for (const f of state.contract.files.filter((c) => c.present)) {
       const how = f.escapes
         ? 'resolves outside the repository; not read'

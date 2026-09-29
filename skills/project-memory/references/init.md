@@ -209,9 +209,16 @@ different read-first list.
 
 ### 3g. Install the writing rule
 
-Copy the plugin's `rules/memory-writing.md` into the project's
+Copy the plugin's `rules/memory-writing.md` (at
+`${CLAUDE_SKILL_DIR}/../../rules/memory-writing.md`) into the project's
 `.claude/rules/memory-writing.md` so it travels with the project in version
 control.
+
+Claude Code treats `.claude/` as protected, so this write asks for approval,
+and a non-interactive run refuses it. If it is refused, do not retry: finish
+`init`, then give the user the one command that does it, with the source path
+resolved to a real absolute path, and say the rule is optional but keeps
+memory edits disciplined.
 
 If the file already exists and differs from the plugin's copy, do not overwrite
 it. Report the difference and let the user decide — a modified local rule is
