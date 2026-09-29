@@ -189,7 +189,7 @@ checks:
 | Check | Severity | Fires on |
 | --- | --- | --- |
 | `unresolved-placeholder` | error | A `{{token}}` survived rendering |
-| `broken-reference` | error inside `memory/`, else warning | A referenced path resolves to nothing |
+| `broken-reference` | error when the target is memory (a `memory/` path, or a Markdown file named from a memory file), else warning | A referenced path resolves to nothing |
 | `duplicate-decision-id` | error | Two decision records claim one id (`2` and `002` collide) |
 | `malformed-frontmatter` | error | A decision record has no frontmatter, unparseable frontmatter, or is missing `id`, `status`, or `date` |
 | `oversized-file` | warning | `CLAUDE.md` over 200 lines, or a memory file over 400 lines or 40,000 bytes |

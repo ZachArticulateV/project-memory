@@ -10,7 +10,7 @@ to this project do.
 ## Language
 
 **Memory tree**:
-The committed `memory/` directory of a target repository, holding its canonical project memory.
+The committed directory of a target repository that holds its canonical project memory.
 _Avoid_: notes folder, knowledge base
 
 **Mode**:
@@ -18,16 +18,16 @@ One of the seven operations the skill routes to: init, status, sync, handoff, gr
 _Avoid_: subcommand
 
 **Playbook**:
-The one reference file a mode loads and follows, under `skills/project-memory/references/`.
+The one instruction document a mode loads and follows.
 
 **Shared reference**:
 A reference consulted by several modes on demand: the schema, the evidence policy, the safety policy, and the interview discipline.
 
 **State probe**:
-`scripts/project-state.mjs`, the deterministic read-only inspection every mode runs before loading its playbook.
+The deterministic, read-only inspection every mode runs before loading its playbook.
 
 **Validator**:
-`scripts/memory-validate.mjs`, the structural checker. It never judges whether a claim is true.
+The structural checker for a memory tree. It never judges whether a claim is true.
 
 **Auditor tier**:
 The evaluator an audit ran on: the Codex CLI first, the bundled read-only subagent as fallback.
@@ -37,13 +37,13 @@ One branch or worktree of active work, with at most one active handoff.
 _Avoid_: lane
 
 **Startup set**:
-The five files a normal session reads before substantial work: the contract file, `INDEX.md`, `current-state.md`, the active handoff, and `next-actions.md`.
+The five files a normal session reads before substantial work: the contract file, the index, current state, the active handoff, and next actions.
 
 **Governed contract**:
-The files carrying the memory pointer that this system validates: `CLAUDE.md`, `.claude/CLAUDE.md`, and `AGENTS.md`.
+The agent instruction files that carry the memory pointer and that this system validates.
 
 **Delegated item**:
-A next action another agent will pick up, carrying `Done when` and `Out of scope` lines.
+A next action another agent will pick up, carrying a checkable done line and an out-of-scope line.
 
 ## Flagged ambiguities
 

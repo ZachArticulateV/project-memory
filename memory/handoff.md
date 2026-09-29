@@ -2,60 +2,63 @@
 
 Updated: 2026-09-29
 Branch: claude/dazzling-cori-d3zw4n
-HEAD: bc1d945
-Working tree: memory/ being added (uncommitted at time of writing)
-Next session focus: repository coherence audit
+HEAD: 092fdd5
+Working tree: memory sync, CI step, and a doc correction, uncommitted at time of writing
+Next session focus: beginner onboarding docs
 
 ## Objective
 
-Audit the whole repository so the Claude and Codex plugins, the skill, its
-modes, scripts, hooks, and docs fit together, and track this project in its
-own memory tree.
+Make the Claude and Codex plugins, the skill, its modes, scripts, hooks, and
+docs fit together, and track this project in its own memory tree.
 
 ## Completed
 
-- The five-iteration mattpocock/skills benchmark (commits `a6dc528` to
-  `bc1d945`).
-- This memory tree: brief, glossary, six decision records, and the core files.
+- Coherence audit of the Markdown system and of code, hooks, and packaging;
+  every HIGH and MEDIUM finding fixed (commits `2010a4e` to `092fdd5`).
+- Codex hook opt-out, recorded as decision 007.
+- A CI step validating this repository's memory.
 
 ## Verified
 
-- `node --test`: 408 passed, 0 failed, 15 skipped, at `bc1d945`.
+- `node --test`: 433 passed, 0 failed, 15 skipped, 2026-09-29.
+- `claude plugin validate . --strict`: passed.
+- `node scripts/memory-validate.mjs` on this tree: no structural findings.
 
 ## Unverified
 
-- The audit findings. Two read-only audits were running when this was written.
+- The CI step itself: added, not yet observed running on GitHub.
+- Anything under Codex in a live session.
 
 ## Current problem
 
-None blocking. The audit results decide the next fixes.
+None blocking.
 
 ## Evidence collected
 
-- No test runs the validator against the repository root, so a real `memory/`
-  here cannot change test outcomes.
+- Codex plugin hook loading was read from Codex source at c248f6d, not run.
 
 ## Unverified hypotheses
 
-- The state probe may not report `AGENTS.md` or `glossary.md`. Not checked yet.
+- None open.
 
 ## Pointers
 
-- Benchmark and its scorecard: `docs/benchmark/mattpocock-skills.md`.
+- Audit fix history: `CHANGELOG.md` (Unreleased, Fixed).
+- Benchmark: `docs/benchmark/mattpocock-skills.md`.
 
 ## Continue here
 
-1. Read the audit findings and fix every HIGH one.
-2. Record each fixed or deferred finding in `bugs-and-risks.md` or
-   `next-actions.md`.
-3. Re-run `node --test` and the validator on this tree.
+1. Write the beginner quickstart: a numbered first run (install, init, review,
+   commit, handoff before /clear), with the jargon defined.
+2. Write the advanced guide: worktrees, Codex, CI validation, audit tiers.
+3. Run `sync` on this tree once they land.
 
 ## Suggested commands
 
 - `node --test` before and after every change.
-- `node scripts/memory-validate.mjs` for this tree.
+- `node scripts/project-state.mjs` to see which memory files trail the code.
 
 ## Do not assume
 
-- That the audit found nothing because nothing is recorded yet.
+- That the CI memory step passes on GitHub until a run is observed.
 - That the Codex path works in a live Codex session.

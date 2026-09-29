@@ -17,9 +17,10 @@ The probe, validator, and hooks behave as `docs/architecture.md` describes.
 
 | Criterion | Status | Evidence |
 | --- | --- | --- |
-| Validator checks match the documented list | verified | `tests/doc-drift.test.mjs`, 408 passed at `bc1d945` |
+| Validator checks match the documented list | verified | `tests/doc-drift.test.mjs`, 433 passed on 2026-09-29 |
 | Hooks fire for every governed contract file | verified | `tests/hooks.test.mjs`, same run |
-| A memory tree rendered from the templates validates clean | unverified | — |
+| A memory tree rendered from the templates validates clean | verified | This repository's `memory/`, validated with no findings on 2026-09-29 |
+| The probe reports every governed contract file | verified | `tests/contract.test.mjs`, same run |
 
 ## Codex support
 

@@ -156,3 +156,23 @@ test('a memory file symlinked outside the repository is reported, never read', (
   assert.deepEqual(escaped, ['memory/glossary.md'])
   assert.deepEqual(result.findings.filter((f) => f.check === 'avoided-term'), [])
 })
+
+import { commitAll, gitAvailable, initRepo } from './fixtures/build.mjs'
+
+test('the glossary is outside change-based staleness', { skip: !gitAvailable() && 'git unavailable' }, () => {
+  const root = makeFixture({
+    ...completeMemoryTree(),
+    'src/cache.mjs': 'export const a = 1\n',
+    'memory/glossary.md': '# Glossary\n\n## Language\n\n**Cache**:\nThe warm store, see `src/cache.mjs`.\n',
+  })
+  cleanupAfter(test, root)
+  initRepo(root)
+  commitAll(root, 'initial')
+  writeFileSync(join(root, 'src', 'cache.mjs'), 'export const a = 2\n')
+  commitAll(root, 'change the cache')
+
+  const staleness = collectProjectState(root).staleness
+  assert.ok(!staleness.staleFiles.includes('memory/glossary.md'), JSON.stringify(staleness.staleFiles))
+  assert.ok(!staleness.files.some((f) => f.path === 'memory/glossary.md'))
+  assert.ok(!staleness.unchecked.some((u) => u.path === 'memory/glossary.md'))
+})

@@ -18,8 +18,12 @@ with four shared references and ten templates.
 
 **Verified:**
 
-- `node --test`: 408 passed, 0 failed, 15 skipped, at `bc1d945`, 2026-09-29.
-- `claude plugin validate . --strict` passed at `bc1d945`.
+- `node --test`: 433 passed, 0 failed, 15 skipped, on the working tree after
+  `092fdd5`, 2026-09-29.
+- `claude plugin validate . --strict` passed on the same tree.
+- A two-part coherence audit (Markdown system; code, hooks, packaging) ran on
+  2026-09-29. Every HIGH and MEDIUM finding is fixed with a test, except the
+  items listed in `bugs-and-risks.md`.
 
 **Not verified:**
 
@@ -37,10 +41,12 @@ Status: working
 
 ### Current reality
 
-`scripts/project-state.mjs` (state probe), `scripts/memory-validate.mjs` (ten
-checks, including `avoided-term`), `scripts/auditor-bridge.mjs` (Codex tier,
-subagent fallback), and two hooks. `AGENTS.md` is governed alongside the two
-`CLAUDE.md` forms.
+`scripts/project-state.mjs` (state probe, now with a `contract` block for the
+three governed contract files), `scripts/memory-validate.mjs` (ten checks,
+including `avoided-term`), `scripts/auditor-bridge.mjs` (Codex tier, subagent
+fallback), and two Claude Code hooks. `AGENTS.md` is governed alongside the
+two `CLAUDE.md` forms by every component. The Codex manifest opts out of the
+hooks (decision 007).
 
 **Verified:**
 
@@ -52,12 +58,13 @@ subagent fallback), and two hooks. `AGENTS.md` is governed alongside the two
 
 **Known limitations:**
 
-- Whether the state probe reports `AGENTS.md` and the glossary is under audit.
+- Path case is folded only on Windows; a case-insensitive macOS disk is not
+  handled, and CI has no macOS runner.
 
 ## Active workstreams
 
-- Branch claude/dazzling-cori-d3zw4n: mattpocock/skills benchmark (done) and the
-  repository-wide coherence audit (in progress).
+- Branch claude/dazzling-cori-d3zw4n: mattpocock/skills benchmark (done),
+  coherence audit (fixes landed), onboarding docs (next).
 
 ## Intentionally deferred
 
@@ -68,6 +75,10 @@ subagent fallback), and two hooks. `AGENTS.md` is governed alongside the two
 
 - Run `node --test` before and after. Doc-drift tests pin counts stated in
   prose (modes, checks, patterns), so a change to a count is a change to prose.
+- Gate every commit on the tests, `claude plugin validate . --strict`, and the
+  memory validator together. A chain that pipes the validator through `tail`
+  hides its failure; this happened once in this workstream.
 - `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` must keep
   identical shared metadata.
-- No em-dash rule applies here; that is an upstream convention, not this repo's.
+- This repository's own instructions live at `.claude/CLAUDE.md`, never a root
+  `CLAUDE.md`, which fails strict plugin validation.

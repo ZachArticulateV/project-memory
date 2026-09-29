@@ -58,3 +58,10 @@ jobs:
       # early.
       - name: Check Codex manifest parses
         run: node -e "JSON.parse(require('node:fs').readFileSync('.codex-plugin/plugin.json','utf8'))"
+
+      # This repository tracks itself in memory/. Validating it here is the
+      # plugin's own check applied to the plugin: an unresolved placeholder, a
+      # broken reference, or a leaked credential in memory fails CI. Warnings
+      # (avoided terms, sizes) never gate. With no memory/ it exits 0.
+      - name: Validate this repository's memory
+        run: node scripts/memory-validate.mjs

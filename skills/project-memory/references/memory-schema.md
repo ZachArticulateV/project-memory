@@ -257,8 +257,10 @@ must not stand in for it. A `Flagged ambiguities` section records words that
 meant two things and how each was resolved.
 
 **Belongs here:** concepts specific to this project. **Does not:** general
-programming concepts, implementation details, or decisions. The glossary is a
-glossary and nothing else.
+programming concepts, implementation details (file paths included), or
+decisions. The glossary is a glossary and nothing else. Because it names no
+implementation, it is outside change-based staleness: the probe never reports
+it as behind a code change.
 
 **Lifecycle:** created lazily, when the first term is resolved. Updated inline
 the moment a term is settled. A renamed concept replaces its entry, and the old

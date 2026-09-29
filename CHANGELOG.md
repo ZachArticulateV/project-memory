@@ -45,6 +45,9 @@ All notable changes to this plugin are documented here. Format follows
 - **`docs/benchmark/mattpocock-skills.md`**: the adopted and rejected patterns
   from mattpocock/skills, with a scorecard.
 
+- **CI validates this repository's own memory** with the plugin's validator.
+- **The glossary is outside change-based staleness**: it defines vocabulary,
+  names no implementation, and no longer goes stale on unrelated code edits.
 - **This repository tracks itself in `memory/`**: a reconstructed brief, a
   glossary, six decision records (two of them `Not:` rejections), current
   state, a handoff, next actions, risks, and acceptance criteria.

@@ -24,6 +24,7 @@ import {
   CLAUDE_MD,
   CLAUDE_MD_LINE_SIGNAL,
   CLAUDE_MD_SCOPE,
+  GLOSSARY_FILENAME,
   MEMORY_DIRNAME,
   discoverMemory,
   extractMemorySection,
@@ -129,7 +130,10 @@ export function collectContract(absRoot) {
  * evidence that another went stale would fire on every sync.
  */
 function computeStaleness(root, git, memory, options) {
-  const allMemoryFiles = memory.markdownFiles
+  // The glossary defines vocabulary, not implementation: a code change does not
+  // make a definition stale, so it is outside change-based staleness entirely.
+  const glossaryRel = `${MEMORY_DIRNAME}/${GLOSSARY_FILENAME}`
+  const allMemoryFiles = memory.markdownFiles.filter((rel) => rel !== glossaryRel)
 
   if (git === null) {
     return {

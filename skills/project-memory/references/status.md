@@ -44,7 +44,7 @@ Answer each of these, from observed facts:
 | Is the working tree clean? | `git.dirty`, `git.changes` |
 | Is there an active handoff? | `handoff.active` |
 | Does it belong to this branch? | `handoff.matchesBranch` |
-| Has any contract file grown large? | `contract.files[].large`, and the `claude-md-large` signals |
+| Has `CLAUDE.md` grown large? | `claudeMd.lines`, `claudeMd.large`; for `.claude/CLAUDE.md` and `AGENTS.md`, `contract.files[].large` |
 | Do `CLAUDE.md` and `AGENTS.md` carry the memory section, and the same one? | `contract` in the probe output |
 | Does a glossary exist? | `memory.optional[]` |
 | When was memory last committed? | `staleness.files[].lastCommit` |

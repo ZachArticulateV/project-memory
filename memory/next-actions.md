@@ -7,17 +7,19 @@ Each item names an observable outcome. "Improve the backend" is not an action.
 
 ## Now
 
-- [ ] Fix every HIGH finding from the coherence audit
-  - Done when: each HIGH finding is fixed with a test, or recorded in `bugs-and-risks.md` with a reason
-  - Out of scope: LOW polish findings
+- [ ] Write a beginner quickstart with a numbered first run and defined jargon
+  - Done when: a reader new to Claude Code can go from install to a committed memory tree and a handoff by following it alone
+  - Out of scope: re-explaining the architecture
+- [ ] Write an advanced guide covering worktrees, Codex, CI validation, and audit tiers
 
 ## Next
 
-- [ ] Add `CLAUDE.md` and `AGENTS.md` with the memory section for this repository
-- [ ] Add a CI step that validates this repository's own memory tree
-- [ ] Write a beginner quickstart and an advanced guide
+- [ ] Observe the new CI memory-validation step on a GitHub run
+- [ ] Bump the version for the next release and move Unreleased in the changelog
 
 ## Blocked
 
-- [ ] Live Codex verification of the handoff launch line and the Outside Claude Code instructions
+- [ ] Live Codex verification of `status`, the Outside Claude Code instructions, and the Codex launch line
   - Blocked by: no Codex CLI in the development environment
+- [ ] Case-insensitive path handling on macOS
+  - Blocked by: no macOS runner to verify against
