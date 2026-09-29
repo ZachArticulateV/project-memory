@@ -125,11 +125,19 @@ it on a project that has none.
 Do not invent a risk register.
 
 `decisions/` starts with the architectural choices the code demonstrably made and
-that a future session would need to respect. Each is a real decision with real
-consequences, not a restatement of the stack. If you cannot say what the
-alternative was, it probably is not a decision record.
+that a future session would need to respect. Each passes the three-part test in
+`memory-schema.md`: hard to reverse, surprising without context, a real
+trade-off. It is not a restatement of the stack. If you cannot say what the
+alternative was, it is not a decision record.
 
-`INDEX.md`'s authority table lists only external systems this project actually
+`glossary.md` is written only when reconnaissance found project-specific terms
+that a newcomer would misread: a word the code uses in a sense of its own, two
+names for one concept, one name for two. Use the code's own names as the
+canonical terms unless the user settles otherwise. A project with no such terms
+gets no glossary.
+
+`INDEX.md` renders the glossary line only when `glossary.md` was written. Its
+authority table lists only external systems this project actually
 uses. Inventing a row sends the next session looking for a system that does not
 exist.
 

@@ -29,6 +29,7 @@ memory/
 ├── next-actions.md
 ├── bugs-and-risks.md
 ├── acceptance-criteria.md  (when the project has features worth verifying)
+├── glossary.md             (when the project has vocabulary of its own)
 ├── decisions/
 │   ├── INDEX.md
 │   └── NNN-slug.md
@@ -61,6 +62,7 @@ listed template that does not exist is a broken schema.
 | `next-actions.md` | `memory/next-actions.md` |
 | `bugs-and-risks.md` | `memory/bugs-and-risks.md` |
 | `acceptance-criteria.md` | `memory/acceptance-criteria.md` |
+| `glossary.md` | `memory/glossary.md` |
 | `decision-record.md` | one file under `memory/decisions/` |
 | `claude-md-section.md` | the memory section inserted into the project's `CLAUDE.md` |
 
@@ -224,10 +226,48 @@ verifying; entries update as evidence accumulates.
 **When to skip:** a project with no verifiable feature set does not need this
 file. Do not scaffold it empty.
 
+### `glossary.md`
+
+**Purpose:** The project's ubiquitous language. One canonical word per concept,
+so memory, code, and conversation name the same thing the same way, and a
+fresh session decodes the project's jargon without guessing.
+
+**Each entry carries:** the term in bold, a one- or two-sentence definition of
+what it is (not what it does), and an `_Avoid_:` line listing the words that
+must not stand in for it. A `Flagged ambiguities` section records words that
+meant two things and how each was resolved.
+
+**Belongs here:** concepts specific to this project. **Does not:** general
+programming concepts, implementation details, or decisions. The glossary is a
+glossary and nothing else.
+
+**Lifecycle:** created lazily, when the first term is resolved. Updated inline
+the moment a term is settled. A renamed concept replaces its entry, and the old
+word joins `_Avoid_`.
+
+**Checked:** the validator warns wherever another memory file uses an
+`_Avoid_` word in prose. Decision records and the archive are exempt, since
+they are history.
+
 ### `decisions/`
 
 **Purpose:** An immutable record of architectural decisions and why they were
 made.
+
+**When a decision earns a record:** all three must hold.
+
+1. **Hard to reverse.** Changing course later has a real cost.
+2. **Surprising without context.** A future reader would ask why it was done
+   this way.
+3. **A real trade-off.** There were genuine alternatives and one was chosen for
+   specific reasons.
+
+If any is missing, there is no record: an easy reversal will just be reversed,
+an unsurprising choice raises no question, and a choice with no alternative
+has nothing to explain. What typically qualifies: architectural shape,
+integration patterns, technology with lock-in, scope boundaries (the explicit
+no-s), deliberate deviations from the obvious path, constraints invisible in
+the code, and rejected alternatives whose rejection is not obvious.
 
 **One record per decision**, named `NNN-slug.md` with a zero-padded sequential
 id. `decisions/INDEX.md` stays a concise list.
@@ -268,6 +308,7 @@ both directions.
 | `next-actions.md` | Completed work removed |
 | `bugs-and-risks.md` | Resolved issues archived |
 | `acceptance-criteria.md` | Status advances only with evidence |
+| `glossary.md` | Created lazily; terms replaced, old words move to `_Avoid_` |
 | `decisions/*` | Append and supersede; history preserved |
 | `archive/*` | Rarely loaded |
 

@@ -101,8 +101,9 @@ exact shape that lets completed-looking work disappear.
 
 ## 4. Decision records
 
-Create one only when a decision actually occurred: an alternative existed, one
-was chosen, and a future session would need to respect the choice.
+Create one only when a decision actually occurred and passes the three-part
+test in `memory-schema.md`: hard to reverse, surprising without context, and a
+real trade-off between genuine alternatives.
 
 Most changes carry no decision. A bug fix that restores intended behavior is not
 a decision. A dependency bump is not a decision. Renaming a function is not a
@@ -112,6 +113,9 @@ real decisions become unfindable.
 
 When a decision did occur, render `templates/decision-record.md`, take the next
 sequential id, and add the row to `decisions/INDEX.md`.
+
+When the work renamed or split a project concept, update `glossary.md` in the
+same pass: the new word becomes the entry, the old one moves to `_Avoid_`.
 
 ## 5. External task state
 

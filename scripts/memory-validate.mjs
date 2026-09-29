@@ -21,6 +21,7 @@ import {
   ANY_PLACEHOLDER,
   CLAUDE_MD_LINE_SIGNAL,
   CLAUDE_MD_SCOPE,
+  GLOSSARY_FILENAME,
   MEMORY_DIRNAME,
   MEMORY_FILE_BYTE_LIMIT,
   MEMORY_FILE_LINE_LIMIT,
@@ -31,6 +32,7 @@ import {
   findSecrets,
   isEmptySectionBody,
   isSchemaOptionalTarget,
+  maskNonProse,
   parseFrontmatter,
   parseSections,
   resolveReference,
@@ -56,6 +58,7 @@ export const CHECKS = [
   'secret-pattern',
   'duplicate-task',
   'escapes-repository',
+  'avoided-term',
 ]
 
 const finding = (check, severity, artifact, message, extra = {}) => ({
@@ -139,6 +142,7 @@ export function validateMemory(root) {
   }
 
   checkDuplicateDecisionIds(absRoot, memory, findings)
+  checkAvoidedTerms(absRoot, memory, findings)
 
   return buildResult(absRoot, scanned, findings, memory)
 }
@@ -369,6 +373,80 @@ function checkDuplicateTasks(text, rel, findings) {
         { line: group[0].line, lines: group.map((t) => t.line), text: group[0].text }
       )
     )
+  }
+}
+
+/**
+ * Parse the glossary into alias -> canonical term.
+ *
+ * The format is the one templates/glossary.md renders: a `**Term**:` line, a
+ * definition, and an optional `_Avoid_: a, b` line naming the words that must
+ * not stand in for the term.
+ */
+export function parseGlossary(text) {
+  const aliases = new Map()
+  let term = null
+  for (const line of maskNonProse(text).split('\n')) {
+    const heading = /^\*\*([^*]+)\*\*:\s*$/.exec(line.trim())
+    if (heading) {
+      term = heading[1].trim()
+      continue
+    }
+    const avoid = /^_Avoid_:\s*(.+)$/.exec(line.trim())
+    if (avoid && term !== null) {
+      for (const raw of avoid[1].split(',')) {
+        const alias = raw.trim().replace(/[.;]$/, '')
+        if (alias === '' || alias.toLowerCase() === term.toLowerCase()) continue
+        aliases.set(alias.toLowerCase(), { alias, term })
+      }
+    }
+  }
+  return aliases
+}
+
+/**
+ * A memory file using a word the glossary says to avoid.
+ *
+ * Warning, never error: a flagged word can be a legitimate quotation. Decision
+ * records and the archive are skipped because they are append-only history and
+ * a finding there could never be fixed without rewriting it.
+ */
+function checkAvoidedTerms(root, memory, findings) {
+  const glossaryRel = `${MEMORY_DIRNAME}/${GLOSSARY_FILENAME}`
+  if (!memory.markdownFiles.includes(glossaryRel)) return
+  const glossary = readTextSafe(joinRel(root, glossaryRel))
+  if (glossary === null) return
+  const aliases = parseGlossary(glossary)
+  if (aliases.size === 0) return
+
+  const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const pattern = new RegExp(
+    `(?<![\\w-])(${[...aliases.values()].map((a) => escape(a.alias)).join('|')})(?![\\w-])`,
+    'gi'
+  )
+
+  for (const rel of memory.markdownFiles) {
+    if (rel === glossaryRel) continue
+    if (isDecisionRecord(rel, memory)) continue
+    if (rel.startsWith(`${MEMORY_DIRNAME}/archive/`)) continue
+    const text = readTextSafe(joinRel(root, rel))
+    if (text === null) continue
+    // Inline code quotes identifiers, which keep the code's names.
+    const prose = maskNonProse(text).replace(/`[^`\n]*`/g, (m) => ' '.repeat(m.length))
+    pattern.lastIndex = 0
+    let match
+    while ((match = pattern.exec(prose)) !== null) {
+      const { alias, term } = aliases.get(match[1].toLowerCase())
+      findings.push(
+        finding(
+          'avoided-term',
+          'warning',
+          rel,
+          `Uses "${match[1]}", which the glossary lists under _Avoid_ for **${term}**.`,
+          { line: lineNumber(text, match.index), alias, term }
+        )
+      )
+    }
   }
 }
 

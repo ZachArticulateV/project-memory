@@ -94,6 +94,13 @@ work moves, not extended into a session log.
 When more than one branch or worktree is active, handoffs are per-workstream.
 Never overwrite another workstream's continuation state.
 
+## Speak the glossary
+
+When `memory/glossary.md` exists, name every concept by its glossary term. A
+word listed under `_Avoid_` is a synonym the project has already rejected; the
+validator flags it. A new project-specific term goes into the glossary the
+moment it is settled, not at the end.
+
 ## Avoid duplicate and stale tasks
 
 Remove completed items from `next-actions.md` once their completion is reflected

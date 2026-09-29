@@ -102,6 +102,7 @@ memory/
 ├── next-actions.md       executable punch list
 ├── bugs-and-risks.md     unresolved problems, with causes separated from hypotheses
 ├── acceptance-criteria.md  when the project has features worth verifying
+├── glossary.md           the project's own terms, and the words to avoid
 ├── decisions/            one immutable record per architectural decision
 └── archive/              rarely loaded
 ```

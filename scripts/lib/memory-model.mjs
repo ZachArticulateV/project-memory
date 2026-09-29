@@ -54,7 +54,9 @@ export const CORE_MEMORY_FILES = [
 ]
 
 /** Files the schema creates only when the project calls for them. */
-export const OPTIONAL_MEMORY_FILES = ['acceptance-criteria.md']
+export const OPTIONAL_MEMORY_FILES = ['acceptance-criteria.md', 'glossary.md']
+
+export const GLOSSARY_FILENAME = 'glossary.md'
 
 /**
  * Locations the memory schema defines but does not require to exist.

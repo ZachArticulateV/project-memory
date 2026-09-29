@@ -9,7 +9,7 @@ not the same guarantee.
 
 **Read this before reading anything else here.** Most of this plugin is Markdown
 that a model reads: the router, seven mode playbooks, four shared references, the
-auditor prompt, the writing rule, and nine templates. Those shape behavior; they
+auditor prompt, the writing rule, and ten templates. Those shape behavior; they
 do not constrain it the way code does. Exactly three properties are mechanically
 enforced, and [`docs/limitations.md`](./limitations.md) names them: the bundled
 auditor cannot write because its tool grant contains no writer, the Codex tier
@@ -114,14 +114,14 @@ it actually uses:
 `memory-schema.md` is the authority for artifact shape; the templates render it.
 When the two disagree, the schema is the contract and the template is the bug.
 
-### Nine templates
+### Ten templates
 
 `skills/project-memory/templates/` holds one file per canonical artifact plus
 the `CLAUDE.md` section. Modes render these rather than composing a document
 shape from scratch, because the validator checks generated files against the
 same source of truth.
 
-Three template defaults are load-bearing rather than cosmetic:
+Four template defaults are load-bearing rather than cosmetic:
 
 - `current-state.md` splits **Current reality** from **Intended direction**, so
   writing an intention as working behavior requires putting it in the wrong
@@ -130,6 +130,9 @@ Three template defaults are load-bearing rather than cosmetic:
   field, so promoting a suspicion means overwriting the word `Unknown`.
 - `acceptance-criteria.md` starts every criterion `unverified`, so code existing
   is never read as a feature working.
+- `glossary.md` gives every term an `_Avoid_` line, which is what the
+  `avoided-term` check reads, so a rejected synonym creeping back into memory
+  is a warning rather than a slow drift in vocabulary.
 
 Unresolved template values use `{{snake_case}}`, which the validator treats as an
 error — an unrendered token in shipped memory is a structural failure, not a
@@ -180,7 +183,7 @@ detection still stands when some other reference was uncheckable: stale is
 stale, and only *absence* of change needs every reference to have been readable.
 
 **`scripts/memory-validate.mjs`** — the structural validator. Exits 1 only when
-a finding has `error` severity; warnings and notes never gate. It declares nine
+a finding has `error` severity; warnings and notes never gate. It declares ten
 checks:
 
 | Check | Severity | Fires on |
@@ -194,6 +197,7 @@ checks:
 | `secret-pattern` | error | A value-shaped credential appears in memory |
 | `duplicate-task` | warning | `next-actions.md` lists the same action twice |
 | `escapes-repository` | error | A memory path or `CLAUDE.md` resolves outside the checkout through a link |
+| `avoided-term` | warning | A memory file uses, in prose, a word `glossary.md` lists under `_Avoid_` (decision records and the archive exempt) |
 
 Two further codes can appear that the declared list does not name:
 `memory-missing` (info, when there is no tree to validate) and `unreadable-file`
@@ -442,6 +446,7 @@ project-memory/
 │       ├── next-actions.md           → memory/next-actions.md
 │       ├── bugs-and-risks.md         → memory/bugs-and-risks.md
 │       ├── acceptance-criteria.md    → memory/acceptance-criteria.md
+│       ├── glossary.md               → memory/glossary.md
 │       ├── decision-record.md        → one file under memory/decisions/
 │       └── claude-md-section.md      → the section inserted into CLAUDE.md
 ├── tests/
@@ -477,6 +482,7 @@ your-project/
     ├── next-actions.md               Now / Next / Blocked
     ├── bugs-and-risks.md             problems, with causes split from hypotheses
     ├── acceptance-criteria.md        created only when features need verifying
+    ├── glossary.md                   created only when the project has its own terms
     ├── decisions/
     │   ├── INDEX.md
     │   └── NNN-slug.md               one immutable record per decision
@@ -489,9 +495,10 @@ Git history. Removing the system means deleting `memory/`, deleting
 `.claude/rules/memory-writing.md`, and dropping one section from `CLAUDE.md` —
 three deletions, no migration, no residue.
 
-`acceptance-criteria.md` and `archive/` are conditional. A project with no
-verifiable feature set does not get an empty acceptance file, and the archive
-exists when something has been retired into it.
+`acceptance-criteria.md`, `glossary.md`, and `archive/` are conditional. A
+project with no verifiable feature set does not get an empty acceptance file, a
+project with no vocabulary of its own gets no glossary, and the archive exists
+when something has been retired into it.
 
 ## The seven modes
 
@@ -639,7 +646,7 @@ nothing in the audit path writes.
 | `SessionStart` hook output | Zero when memory is healthy; a few lines otherwise, hard-capped at 3,000 characters |
 
 That is the entire automatic cost. The plugin's own Markdown — the router, seven
-playbooks, four shared references, nine templates, the auditor prompt, the
+playbooks, four shared references, ten templates, the auditor prompt, the
 writing rule — loads none of itself at session start.
 
 **Loads on demand:**
@@ -651,7 +658,7 @@ writing rule — loads none of itself at session start.
 | A policy reference | When the running playbook calls for it |
 | `rules/memory-writing.md` | Only while editing `memory/**/*.md` or a `CLAUDE.md` |
 | The five-file startup set | Before substantive project work, per `INDEX.md` |
-| `bugs-and-risks.md`, `acceptance-criteria.md`, a decision record | When the task makes them relevant |
+| `bugs-and-risks.md`, `acceptance-criteria.md`, `glossary.md`, a decision record | When the task makes them relevant |
 | `archive/` | Effectively never |
 
 Two mechanisms keep this true rather than aspirational: `CLAUDE.md` references

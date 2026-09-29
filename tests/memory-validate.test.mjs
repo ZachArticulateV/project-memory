@@ -503,3 +503,71 @@ test('the CLI exits non-zero on an error finding and zero when only warnings exi
     execFileSync(process.execPath, [VALIDATOR, '--cwd', warnOnly], { encoding: 'utf8', stdio: 'pipe' })
   )
 })
+
+// --- glossary ---------------------------------------------------------------
+
+const GLOSSARY = [
+  '# Glossary',
+  '',
+  '## Language',
+  '',
+  '**Workstream**:',
+  'One branch or worktree of active work.',
+  '_Avoid_: lane, track',
+  '',
+  '**Handoff**:',
+  'A continuation pointer for the next session.',
+  '_Avoid_: session log',
+  '',
+].join('\n')
+
+test('a memory file using an avoided word draws a warning naming the canonical term', () => {
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/glossary.md': GLOSSARY,
+    'memory/next-actions.md': tree['memory/next-actions.md'] + '\nThe auth lane stays paused. Do not keep a session log.\n',
+  })
+  cleanupAfter(test, root)
+
+  const result = validateMemory(root)
+  const found = findingsOf(result, 'avoided-term')
+  assert.deepEqual(
+    found.map((f) => [f.artifact, f.alias, f.term, f.severity]),
+    [
+      ['memory/next-actions.md', 'lane', 'Workstream', 'warning'],
+      ['memory/next-actions.md', 'session log', 'Handoff', 'warning'],
+    ]
+  )
+  // A warning never gates.
+  assert.equal(result.ok, true)
+})
+
+test('avoided words inside code, inside longer words, or in history are not flagged', () => {
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/glossary.md': GLOSSARY,
+    // `lane` in a code span quotes an identifier; "tracking" is not "track".
+    'memory/next-actions.md': tree['memory/next-actions.md'] + '\nRename `lane` in the router. Tracking is fine.\n\n```\nlane = 1\n```\n',
+    'memory/archive/old.md': '# Old\n\nThe lane model was retired.\n',
+  })
+  cleanupAfter(test, root)
+
+  assert.deepEqual(findingsOf(validateMemory(root), 'avoided-term'), [])
+})
+
+test('with no glossary the avoided-term check is silent', () => {
+  const root = fixtureWith()
+  cleanupAfter(test, root)
+  assert.deepEqual(findingsOf(validateMemory(root), 'avoided-term'), [])
+})
+
+test('an INDEX reference to a glossary that does not exist yet is not broken', () => {
+  // The glossary is created lazily, so pointing at it before its first term is
+  // the schema describing itself, not a missing artifact.
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/INDEX.md': tree['memory/INDEX.md'] + '\nRead `glossary.md` when a term is unclear.\n',
+  })
+  cleanupAfter(test, root)
+  assert.deepEqual(findingsOf(validateMemory(root), 'broken-reference'), [])
+})

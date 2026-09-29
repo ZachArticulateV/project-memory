@@ -23,12 +23,20 @@ All notable changes to this plugin are documented here. Format follows
   criteria.
 - **`references/interview.md`**: the shared interview discipline. `init` now
   asks its questions through it.
+- **`memory/glossary.md`**: the project's ubiquitous language, one canonical
+  term per concept with an `_Avoid_` list. Created lazily; `init`, `grill`, and
+  `sync` write to it when a term is settled or renamed.
+- **`avoided-term` validator check** (warning): flags prose in memory that uses
+  a word the glossary rejected. Code spans, fences, decision records, and the
+  archive are exempt.
 - **`docs/benchmark/mattpocock-skills.md`**: the adopted and rejected patterns
   from mattpocock/skills, with a scorecard.
 
 ### Changed
 
 - Handoff redaction covers personal data, not only secret values.
+- Decision records are gated on a three-part test everywhere (`init`, `sync`,
+  `grill`): hard to reverse, surprising without context, a real trade-off.
 
 ## [1.0.0] — 2026-08-11
 

@@ -28,8 +28,8 @@ iteration that adopted it. `-` means the pattern was absent.
 | Grilling | Facts are the agent's job; decisions are the user's | Partial (init 3c) | Adopted | 2 |
 | Grilling | Done only when the frontier is empty and the user confirms | - | Adopted | 2 |
 | Grilling | Grilling writes the docs it settles (`grill-with-docs`) | - | Adopted, evidence-gated | 2 |
-| Domain | Ubiquitous-language glossary with `_Avoid_` aliases | - | Planned | 3 |
-| Domain | ADR only when hard to reverse, surprising, and a real trade-off | Partial | Adopted in `grill`; schema-wide planned | 2, 3 |
+| Domain | Ubiquitous-language glossary with `_Avoid_` aliases | - | Adopted, plus a validator check | 3 |
+| Domain | ADR only when hard to reverse, surprising, and a real trade-off | Partial | Adopted schema-wide | 2, 3 |
 | Domain | Create docs lazily, never scaffold empty | Adopted | Adopted | - |
 | Codex | Per-skill `agents/openai.yaml` with invocation policy | - | Planned | 4 |
 | Codex | Harness-neutral pointer (`AGENTS.md`) to the same memory | - | Planned | 4 |
@@ -56,7 +56,8 @@ These are deliberate and stay:
 | Upstream choice | Why not here |
 | --- | --- |
 | Handoff saved to the OS temp directory | Continuation state must survive the machine and travel with the branch. Memory is committed. |
-| `CONTEXT.md` at the repository root | Memory lives under `memory/` so one directory holds all of it. The glossary follows that rule. |
+| `CONTEXT.md` at the repository root | Memory lives under `memory/` so one directory holds all of it. The glossary is `memory/glossary.md`. |
+| `CONTEXT-MAP.md` for multi-context repos | Deferred until a real multi-context project needs it. One glossary per memory tree covers every repo this plugin currently serves. |
 | ADRs under `docs/adr/` | Decision records already live in `memory/decisions/` with supersede links. |
 | Background-agent launch (`claude --bg`) as the handoff | Stays in-progress upstream. The resume prompt covers the same need without a harness-specific flag. |
 
@@ -110,3 +111,29 @@ memory write in this plugin is a command the user issued.
 Changed files: `references/grill.md` (new), `references/interview.md` (new),
 `references/init.md`, `SKILL.md`, both manifests, `README.md`,
 `docs/architecture.md`, `docs/limitations.md`, `tests/grill.test.mjs` (new).
+
+### Iteration 3: domain language
+
+Adopted from upstream `domain-modeling` (`CONTEXT-FORMAT.md`, `ADR-FORMAT.md`):
+
+- `memory/glossary.md`: bold term, one- or two-sentence definition of what it
+  is, `_Avoid_:` aliases, and a `Flagged ambiguities` section. Project-specific
+  terms only; no implementation detail. Created lazily.
+- Terms are written the moment they settle: `grill` writes them inline, `sync`
+  moves a renamed concept's old word to `_Avoid_`, `init` seeds the glossary
+  only when the code uses words in a sense of its own.
+- The three-part decision test (hard to reverse, surprising without context, a
+  real trade-off) now gates decision records in the schema, `init`, `sync`, and
+  `grill`, with upstream's list of what typically qualifies.
+- The writing rule gains "Speak the glossary".
+
+Beyond upstream: upstream's glossary is advisory. Here the validator reads the
+`_Avoid_` lines and warns wherever memory prose uses a rejected word, so the
+shared language is checked rather than hoped for. Code spans, fences, decision
+records, and the archive are exempt, so the check never demands rewriting
+history or renaming identifiers.
+
+Changed files: `templates/glossary.md` (new), `templates/index.md`,
+`references/memory-schema.md`, `references/init.md`, `references/sync.md`,
+`references/grill.md`, `rules/memory-writing.md`,
+`scripts/memory-validate.mjs`, `scripts/lib/memory-model.mjs`, docs, tests.

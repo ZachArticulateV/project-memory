@@ -110,3 +110,16 @@ test('the handoff playbook reads a focus and prints a pointer-only resume prompt
   // The focus must never upgrade what counts as verified.
   assert.match(playbook, /never changes what counts as verified/)
 })
+
+test('the glossary template carries the _Avoid_ line the validator reads', () => {
+  const body = readTemplate('glossary.md')
+  assert.match(body, /^\*\*\{\{term\}\}\*\*:$/m)
+  assert.match(body, /^_Avoid_: \{\{[a-z_]+\}\}$/m)
+  assert.match(body, /^## Flagged ambiguities$/m)
+})
+
+test('the schema gates decision records on the three-part test', () => {
+  for (const gate of ['Hard to reverse', 'Surprising without context', 'A real trade-off']) {
+    assert.ok(schema.includes(gate), `memory-schema.md is missing the decision gate: ${gate}`)
+  }
+})
