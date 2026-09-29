@@ -83,8 +83,14 @@ export function renderStateText(state) {
   out.push(`CLAUDE.md: ${state.claudeMd.present ? `${state.claudeMd.lines} lines` : 'absent'}${state.claudeMd.large ? ' (large)' : ''}`)
   if (state.contract) {
     for (const f of state.contract.files.filter((c) => c.present)) {
-      const how = f.hasMemorySection ? 'memory section present' : f.importsAgentsMd ? 'imports AGENTS.md' : 'no memory section'
-      out.push(bullet(`${f.path}: ${how}`))
+      const how = f.escapes
+        ? 'resolves outside the repository; not read'
+        : f.hasMemorySection
+          ? 'memory section present'
+          : f.importsAgentsMd
+            ? 'imports AGENTS.md'
+            : 'no memory section'
+      out.push(bullet(`${f.path}: ${f.lines} lines${f.large ? ' (large)' : ''}, ${how}`))
     }
     if (state.contract.sectionsMatch === false) out.push(bullet('memory sections differ between contract files'))
   }

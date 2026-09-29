@@ -51,6 +51,25 @@ All notable changes to this plugin are documented here. Format follows
 
 ### Fixed
 
+- **Contract scope reached every component.** The probe reports each of
+  `CLAUDE.md`, `.claude/CLAUDE.md`, and `AGENTS.md` (size, the memory section,
+  whether copies agree, whether it escapes the checkout) and signals size for
+  each; the audit prompt carries all three as data; the post-edit hook header
+  no longer claims only `memory/` was checked, and paths compare case-folded
+  on Windows.
+- **A glossary edit reports the warnings it causes** in every file, not just
+  in the glossary.
+- **A symlinked memory file that escapes the repository** is reported as
+  `escapes-repository`; it used to vanish from validation silently.
+- **`avoided-term` correctness**: canonical terms are masked before aliases
+  match, more term-line forms parse, link targets and URLs are skipped, and
+  findings are capped per file with linear line counting.
+- **The Codex manifest opts out of the Claude Code hooks** (`"hooks": {}`),
+  which Codex otherwise loads by default and cannot run correctly; it also
+  gains `interface.displayName`.
+- **This repository's `CLAUDE.md` moved to `.claude/CLAUDE.md`**, because
+  `claude plugin validate --strict` fails on a root `CLAUDE.md` in a plugin.
+
 - The validator read a backticked command (`node scripts/x.mjs`) as a path and
   reported it broken. A span whose first word has no slash or extension is now
   a command, not a path; a path containing spaces is still checked.

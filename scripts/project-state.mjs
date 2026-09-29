@@ -18,7 +18,7 @@
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 
-import { fileFacts, isDirectory, joinRel, readTextSafe } from './lib/fs-utils.mjs'
+import { containedBy, fileFacts, isDirectory, joinRel, readTextContained, readTextSafe } from './lib/fs-utils.mjs'
 import {
   AGENTS_MD,
   CLAUDE_MD,
@@ -90,13 +90,19 @@ export function collectProjectState(root, options = {}) {
  */
 export function collectContract(absRoot) {
   const files = CLAUDE_MD_SCOPE.map((rel) => {
-    const facts = fileFacts(joinRel(absRoot, rel))
-    const text = facts.present ? readTextSafe(joinRel(absRoot, rel)) : null
+    const abs = joinRel(absRoot, rel)
+    const facts = fileFacts(abs)
+    // A contract file that links outside the checkout is reported as escaping
+    // and never read, matching what the validator and the bridge do with it.
+    const escapes = facts.present && !containedBy(absRoot, abs)
+    const text = facts.present && !escapes ? readTextContained(absRoot, abs) : null
     const section = text === null ? null : extractMemorySection(text)
     return {
       path: rel,
       present: facts.present,
+      escapes,
       lines: facts.present ? facts.lines : 0,
+      large: facts.present && facts.lines > CLAUDE_MD_LINE_SIGNAL,
       hasMemorySection: section !== null,
       importsAgentsMd: text !== null && rel !== AGENTS_MD && importsAgentsMd(text),
       section,
@@ -296,10 +302,13 @@ function deriveSignals(state) {
     })
   }
 
-  if (state.claudeMd.large) {
+  // Every governed contract file loads on every session in some harness, so
+  // each one gets the size signal, not only the root CLAUDE.md.
+  for (const file of state.contract.files.filter((f) => f.large)) {
     signals.push({
       id: 'claude-md-large',
-      message: `CLAUDE.md is ${state.claudeMd.lines} lines (signal threshold ${state.claudeMd.threshold})`,
+      path: file.path,
+      message: `${file.path} is ${file.lines} lines (signal threshold ${CLAUDE_MD_LINE_SIGNAL})`,
     })
   }
 

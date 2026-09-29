@@ -32,7 +32,7 @@ import { fileURLToPath } from 'node:url'
 import { basename, isAbsolute, relative, resolve } from 'node:path'
 
 import { isDirectory, joinRel, toPosix } from './lib/fs-utils.mjs'
-import { CLAUDE_MD_SCOPE, MEMORY_DIRNAME } from './lib/memory-model.mjs'
+import { CLAUDE_MD_SCOPE, GLOSSARY_FILENAME, MEMORY_DIRNAME } from './lib/memory-model.mjs'
 import { STRUCTURAL_DISCLAIMER } from './lib/report.mjs'
 import { validateMemory } from './memory-validate.mjs'
 
@@ -101,12 +101,22 @@ export function isMemoryScoped(root, filePath) {
  * suppressing it there would hide exactly the finding this hook exists for.
  * Warnings only for the edited file: a pre-existing size warning three files
  * away is not news, and repeating it on every memory edit is how a warning
- * channel gets tuned out.
+ * channel gets tuned out. One exception: an edit to the glossary changes which
+ * words are avoided everywhere, so its `avoided-term` warnings in every file
+ * are news, and they are reported.
+ *
+ * Paths compare case-folded on Windows, matching isMemoryScoped, so an edit
+ * reported as `agents.md` still selects findings about `AGENTS.md`.
  */
 export function selectFindings(findings, editedRel) {
-  return findings.filter(
-    (f) => f.severity === 'error' || (f.severity === 'warning' && f.artifact === editedRel)
-  )
+  const edited = caseFold(editedRel)
+  const glossaryEdited = edited === caseFold(`${MEMORY_DIRNAME}/${GLOSSARY_FILENAME}`)
+  return findings.filter((f) => {
+    if (f.severity === 'error') return true
+    if (f.severity !== 'warning') return false
+    if (caseFold(String(f.artifact)) === edited) return true
+    return glossaryEdited && f.check === 'avoided-term'
+  })
 }
 
 const SEVERITY_ORDER = { error: 0, warning: 1, info: 2 }
@@ -121,7 +131,7 @@ export function renderFindings(findings) {
       String(a.artifact).localeCompare(String(b.artifact))
   )
 
-  const out = ['project-memory: structural validation of `memory/` found:']
+  const out = ['project-memory: structural validation of project memory found:']
   for (const f of sorted.slice(0, MAX_FINDINGS)) {
     const where = f.line ? `${f.artifact}:${f.line}` : f.artifact
     out.push(`- ${f.severity} [${f.check}] \`${where}\` — ${f.message}`)

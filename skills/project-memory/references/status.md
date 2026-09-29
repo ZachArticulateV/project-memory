@@ -44,7 +44,7 @@ Answer each of these, from observed facts:
 | Is the working tree clean? | `git.dirty`, `git.changes` |
 | Is there an active handoff? | `handoff.active` |
 | Does it belong to this branch? | `handoff.matchesBranch` |
-| Has `CLAUDE.md` grown large? | `claudeMd.lines`, `claudeMd.large` |
+| Has any contract file grown large? | `contract.files[].large`, and the `claude-md-large` signals |
 | Do `CLAUDE.md` and `AGENTS.md` carry the memory section, and the same one? | `contract` in the probe output |
 | Does a glossary exist? | `memory.optional[]` |
 | When was memory last committed? | `staleness.files[].lastCommit` |
@@ -118,7 +118,7 @@ A recommendation names the evidence that produced it.
 | `avoided-term` warnings | `repair`, rewording each to its glossary term |
 | A contract file missing the memory section, or the two sections differ | `init` Section 3e or 3f for that file |
 | Claims that could not be checked | `audit` — it is the only mode that can evaluate them |
-| `CLAUDE.md` over the size signal | `/doctor` for trim proposals; do not reimplement them here |
+| A contract file over the size signal | `/doctor` for trim proposals; do not reimplement them here |
 
 Weight the sync recommendation by what changed. A change to a path named by an
 open risk or by an active workstream matters more than a change to a path

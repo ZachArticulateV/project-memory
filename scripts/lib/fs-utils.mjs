@@ -131,7 +131,12 @@ export function lineOf(text, index) {
 }
 
 /** Recursively list files under a directory, sorted, as absolute paths. */
-export function listFiles(absDir, { extension = null, maxDepth = 12 } = {}) {
+/**
+ * `includeFileLinks` also returns symbolic links that resolve to files, so a
+ * caller that checks containment can report a link escaping the repository
+ * instead of never seeing it. Links to directories are never followed.
+ */
+export function listFiles(absDir, { extension = null, maxDepth = 12, includeFileLinks = false } = {}) {
   const out = []
   const walk = (dir, depth) => {
     if (depth > maxDepth) return
@@ -146,7 +151,9 @@ export function listFiles(absDir, { extension = null, maxDepth = 12 } = {}) {
       if (SKIP_DIRS.has(entry.name)) continue
       const abs = join(dir, entry.name)
       if (entry.isDirectory()) walk(abs, depth + 1)
-      else if (entry.isFile() && (extension === null || entry.name.endsWith(extension))) out.push(abs)
+      else if (extension !== null && !entry.name.endsWith(extension)) continue
+      else if (entry.isFile()) out.push(abs)
+      else if (includeFileLinks && entry.isSymbolicLink() && statSafe(abs)?.isFile() === true) out.push(abs)
     }
   }
   walk(absDir, 0)

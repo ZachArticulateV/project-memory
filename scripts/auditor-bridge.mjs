@@ -63,7 +63,7 @@ import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { isFile, readTextContained, readTextSafe, toPosix } from './lib/fs-utils.mjs'
-import { CLAUDE_MD, MEMORY_DIRNAME, discoverMemory, redactDeep } from './lib/memory-model.mjs'
+import { CLAUDE_MD_SCOPE, MEMORY_DIRNAME, discoverMemory, redactDeep } from './lib/memory-model.mjs'
 import { USAGE_EXIT_CODE, emit, parseCliArgs } from './lib/report.mjs'
 
 export const BRIDGE_SCHEMA_VERSION = 1
@@ -669,7 +669,11 @@ export function buildAuditPrompt(root, options = {}) {
   // exists to refuse.
   const readable = []
   const excluded = []
-  for (const rel of [...memory.markdownFiles, CLAUDE_MD]) {
+  // Every governed contract file, not only the root CLAUDE.md: the audit asks
+  // whether CLAUDE.md and AGENTS.md carry the same memory section, and the
+  // Codex tier has no other route to AGENTS.md (project docs are disabled).
+  // They arrive as data on stdin, never as instructions.
+  for (const rel of [...memory.markdownFiles, ...CLAUDE_MD_SCOPE]) {
     const abs = join(absRoot, ...rel.split('/'))
     const text = readTextContained(absRoot, abs)
     if (text !== null) {
@@ -693,7 +697,7 @@ export function buildAuditPrompt(root, options = {}) {
     'Git history in this checkout and compare them against every claim below.',
     '',
     'You are read-only. Do not create, modify, move, or delete any file. Never write',
-    `to ${MEMORY_DIRNAME}/, ${CLAUDE_MD}, or .claude/rules/. You return evidence; a separate`,
+    `to ${MEMORY_DIRNAME}/, ${CLAUDE_MD_SCOPE.join(', ')}, or .claude/rules/. You return evidence; a separate`,
     'coordinating session decides what to change.',
     '',
     'Classify each finding as exactly one of:',

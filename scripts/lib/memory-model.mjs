@@ -107,11 +107,13 @@ export function importsAgentsMd(text) {
 /** True when an unresolved reference points at a schema-defined optional location. */
 export function isSchemaOptionalTarget(fromRelPosix, ref) {
   if (!fromRelPosix.startsWith(`${MEMORY_DIRNAME}/`) && !CLAUDE_MD_SCOPE.includes(fromRelPosix)) return false
-  const target = ref.replace(/^\.\//, '').replace(new RegExp(`^${MEMORY_DIRNAME}/`), '').replace(/\/$/, '')
+  const bare = ref.replace(/^\.\//, '')
+  const target = bare.replace(new RegExp(`^${MEMORY_DIRNAME}/`), '').replace(/\/$/, '')
   // The governed contract files are system vocabulary too: memory explains
   // that the pointer lives in `CLAUDE.md` and `AGENTS.md` whether or not this
-  // project has created both.
-  return SCHEMA_OPTIONAL_TARGETS.has(target) || CLAUDE_MD_SCOPE.includes(target)
+  // project has created both. Matched on the unstripped reference, so a
+  // genuinely broken `memory/AGENTS.md` link is still reported.
+  return SCHEMA_OPTIONAL_TARGETS.has(target) || CLAUDE_MD_SCOPE.includes(bare)
 }
 
 // Size thresholds. These are signals, not limits: nothing is rejected for
@@ -609,6 +611,7 @@ export function discoverMemory(root) {
   const decisionsAbs = joinRel(root, `${MEMORY_DIRNAME}/${DECISIONS_DIRNAME}`)
   const decisionRecords = isDirectory(decisionsAbs)
     ? listFiles(decisionsAbs, { extension: '.md' })
+        .filter((abs) => containedBy(root, abs))
         .map((abs) => relPosix(root, abs))
         .filter((rel) => basename(rel).toUpperCase() !== 'INDEX.MD')
     : []
@@ -624,7 +627,7 @@ export function discoverMemory(root) {
   // under repository-looking names. Escapes are reported rather than dropped
   // silently -- memory that vanished from an audit with no explanation is the
   // silent degradation this project exists to refuse.
-  const discovered = exists ? listFiles(memoryAbs, { extension: '.md' }) : []
+  const discovered = exists ? listFiles(memoryAbs, { extension: '.md', includeFileLinks: true }) : []
   const markdownFiles = []
   const escapedFiles = []
   for (const abs of discovered) {
