@@ -97,6 +97,11 @@ Templates for every canonical artifact live in `templates/`. Render those rather
 than composing a document shape from scratch — the validator checks generated
 files against the same source of truth.
 
+Every `references/…` and `templates/…` path in this skill, playbooks included,
+is relative to this skill's directory (`${CLAUDE_SKILL_DIR}`), never to the
+project. A playbook's "render `templates/handoff.md`" means
+`${CLAUDE_SKILL_DIR}/templates/handoff.md`.
+
 ### 5. Validate the result
 
 Any mode that wrote to `memory/`, `CLAUDE.md`, or `AGENTS.md` finishes by running:

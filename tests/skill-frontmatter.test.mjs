@@ -82,3 +82,9 @@ test('allowed-tools grants only the bundled read-only scripts', () => {
   // skill needs.
   assert.doesNotMatch(allowed, /Bash\(\*\)|(^|,)\s*Bash\s*(,|$)/)
 })
+
+test('the router says where references and templates live', () => {
+  // A live grill run looked for templates/ in the project, found nothing, and
+  // wrote files from the schema's prose instead of the templates.
+  assert.match(body, /is relative to this skill's directory \(`\$\{CLAUDE_SKILL_DIR\}`\), never to the\s+project/)
+})
