@@ -18,12 +18,15 @@ with four shared references and ten templates.
 
 **Verified:**
 
-- `node --test`: 433 passed, 0 failed, 15 skipped, on the working tree after
-  `092fdd5`, 2026-09-29.
+- `node --test`: 450 passed, 0 failed, 15 skipped, on the working tree after
+  `af1f2f8`, 2026-09-29.
 - `claude plugin validate . --strict` passed on the same tree.
-- A two-part coherence audit (Markdown system; code, hooks, packaging) ran on
-  2026-09-29. Every HIGH and MEDIUM finding is fixed with a test, except the
-  items listed in `bugs-and-risks.md`.
+- Three audits ran on 2026-09-29 (Markdown system; code, hooks, packaging;
+  an independent re-audit of the day's changes). Every HIGH and MEDIUM
+  finding is fixed with a test, except the release steps in `next-actions.md`
+  and the items in `bugs-and-risks.md`.
+- Live headless runs of `init`, `sync`, and `handoff for codex:` on a sample
+  project; results in `acceptance-criteria.md`.
 
 **Not verified:**
 
@@ -58,14 +61,12 @@ hooks (decision 007).
 
 **Known limitations:**
 
-- Path case is folded only on Windows; a case-insensitive macOS disk is not
-  handled, and CI has no macOS runner.
+- Filesystem case detection is untested on a real case-insensitive macOS disk.
 
 ## Active workstreams
 
-- Branch claude/dazzling-cori-d3zw4n: mattpocock/skills benchmark (done),
-  coherence audit (fixes landed), onboarding docs (written, not yet walked
-  through in a live session).
+- Branch claude/dazzling-cori-d3zw4n: version 1.1.0 prepared (benchmark,
+  audits, onboarding docs). Not yet merged, tagged, or published.
 
 ## Intentionally deferred
 

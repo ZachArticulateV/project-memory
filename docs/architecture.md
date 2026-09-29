@@ -192,7 +192,7 @@ checks:
 | `broken-reference` | error when the target is memory (a `memory/` path, or a Markdown file named from a memory file), else warning | A referenced path resolves to nothing |
 | `duplicate-decision-id` | error | Two decision records claim one id (`2` and `002` collide) |
 | `malformed-frontmatter` | error | A decision record has no frontmatter, unparseable frontmatter, or is missing `id`, `status`, or `date` |
-| `oversized-file` | warning | `CLAUDE.md` over 200 lines, or a memory file over 400 lines or 40,000 bytes |
+| `oversized-file` | warning | A contract file (`CLAUDE.md`, `.claude/CLAUDE.md`, `AGENTS.md`) over 200 lines, or a memory file over 400 lines or 40,000 bytes |
 | `empty-section` | error | A required section is absent or empty |
 | `secret-pattern` | error | A value-shaped credential appears in memory |
 | `duplicate-task` | warning | `next-actions.md` lists the same action twice |
@@ -420,7 +420,7 @@ project-memory/
 ├── rules/
 │   └── memory-writing.md             loads only on memory/ or contract-file edits
 ├── schemas/
-│   └── audit-findings.schema.json    the finding contract both CLI tiers answer
+│   └── audit-findings.schema.json    the finding contract every auditor tier answers
 ├── scripts/
 │   ├── project-state.mjs             deterministic probe
 │   ├── memory-validate.mjs           structural validator

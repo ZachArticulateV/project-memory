@@ -14,8 +14,8 @@ Evidence:
   (the originating specification)
 - `docs/plans/2026-08-08-001-feat-project-memory-plugin-plan.md` (the
   implementation plan)
-- Git history from `bc7487b` (2026-08-08) to `47f5ede` (release 1.0.0,
-  2026-08-11)
+- Git history from `4f53d09` (the scaffold, 2026-08-08) to `47f5ede`
+  (release 1.0.0, 2026-08-11)
 - `README.md` and `docs/architecture.md` at 1.0.0
 
 This memory tree was introduced after 1.0.0, so everything below is read from

@@ -104,8 +104,8 @@ what it must not assume.
 | "The audit was right; fix it" | `/project-memory repair` |
 
 You do not have to remember to run `status`. When memory has drifted behind the
-code, a session-start line says so — naming the file and the change, not a
-calendar age. When memory is current, it says nothing at all.
+code, a session-start line says so, naming the memory file that trails the
+code rather than a calendar age. When memory is current, it says nothing at all.
 
 Nothing runs in the background and nothing rewrites your files on its own.
 Automatic rewriting produces volume, not accuracy, so every write follows an

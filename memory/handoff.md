@@ -2,40 +2,43 @@
 
 Updated: 2026-09-29
 Branch: claude/dazzling-cori-d3zw4n
-HEAD: 092fdd5
-Working tree: memory sync, CI step, and a doc correction, uncommitted at time of writing
-Next session focus: beginner onboarding docs
+HEAD: af1f2f8
+Working tree: version 1.1.0 bump, doc fixes, and this memory sync, uncommitted at time of writing
+Next session focus: release 1.1.0
 
 ## Objective
 
-Make the Claude and Codex plugins, the skill, its modes, scripts, hooks, and
-docs fit together, and track this project in its own memory tree.
+Ship version 1.1.0: the mattpocock/skills benchmark, three audits' fixes,
+this repository's own memory, and the onboarding docs.
 
 ## Completed
 
-- Coherence audit of the Markdown system and of code, hooks, and packaging;
-  every HIGH and MEDIUM finding fixed (commits `2010a4e` to `092fdd5`).
-- Codex hook opt-out, recorded as decision 007.
-- A CI step validating this repository's memory.
+- Benchmark (`a6dc528` to `bc1d945`), coherence audit fixes (`2010a4e` to
+  `092fdd5`), onboarding docs (`18ed66e`), live-run fixes (`205cedd` to
+  `ba1d13e`), re-audit fixes (`84c44e9` to `af1f2f8`).
+- Both manifests and the changelog at 1.1.0.
 
 ## Verified
 
-- `node --test`: 433 passed, 0 failed, 15 skipped, 2026-09-29.
+- `node --test`: 450 passed, 0 failed, 15 skipped, 2026-09-29.
 - `claude plugin validate . --strict`: passed.
-- `node scripts/memory-validate.mjs` on this tree: no structural findings.
+- `node scripts/memory-validate.mjs` on this tree: no errors.
 
 ## Unverified
 
-- The CI step itself: added, not yet observed running on GitHub.
+- The CI workflow on GitHub: it runs on pull requests and pushes to main, and
+  neither has happened for this branch.
 - Anything under Codex in a live session.
+- The quickstart followed end to end in an interactive session.
 
 ## Current problem
 
-None blocking.
+Publishing needs steps outside this repository (see Continue here).
 
 ## Evidence collected
 
-- Codex plugin hook loading was read from Codex source at c248f6d, not run.
+- The marketplace entry in ZachArticulateV/claude-plugins pins
+  project-memory to v1.0.0 (read by the re-audit).
 
 ## Unverified hypotheses
 
@@ -43,22 +46,23 @@ None blocking.
 
 ## Pointers
 
-- Audit fix history: `CHANGELOG.md` (Unreleased, Fixed).
-- Benchmark: `docs/benchmark/mattpocock-skills.md`.
+- What changed: `CHANGELOG.md` (1.1.0).
+- Audit history: `docs/benchmark/mattpocock-skills.md` and the commit log.
 
 ## Continue here
 
-1. Write the beginner quickstart: a numbered first run (install, init, review,
-   commit, handoff before /clear), with the jargon defined.
-2. Write the advanced guide: worktrees, Codex, CI validation, audit tiers.
-3. Run `sync` on this tree once they land.
+1. Open a pull request from this branch and watch the CI run, including the
+   new memory-validation step.
+2. After merge, tag `v1.1.0` on main and set the changelog date.
+3. Bump the project-memory entry in the ZachArticulateV/claude-plugins
+   marketplace to `v1.1.0` (a different repository).
 
 ## Suggested commands
 
-- `node --test` before and after every change.
-- `node scripts/project-state.mjs` to see which memory files trail the code.
+- `node --test` and `node scripts/memory-validate.mjs` before any commit.
+- `claude plugin validate . --strict` after touching a manifest.
 
 ## Do not assume
 
-- That the CI memory step passes on GitHub until a run is observed.
-- That the Codex path works in a live Codex session.
+- That installing from the marketplace gives 1.1.0 before step 3 is done.
+- That CI passes on GitHub until a run is observed.

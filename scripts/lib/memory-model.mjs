@@ -238,6 +238,9 @@ export function looksLikePath(token) {
   // command, and a false alarm on every command is the worse failure.
   if (/\s/.test(t) && !(t.split(/\s/)[0].includes('/') && /\.[A-Za-z0-9]{1,6}$/.test(t))) return false
   if (/^\.{1,2}$/.test(t)) return false
+  // A version string (`v1.1.0`, `18.20.4`, `2.0.0-rc.1`), not a file with a
+  // numeric extension.
+  if (/^v?\d+(\.\d+)+([-+][0-9A-Za-z.-]+)?$/.test(t)) return false
 
   const hasSlash = t.includes('/')
   const hasExtension = /\.[A-Za-z0-9]{1,6}$/.test(t)

@@ -759,3 +759,12 @@ test('commands and prose with spaces are not paths; a spaced path under a folder
   const refs = findingsOf(validateMemory(root), 'broken-reference').map((f) => f.reference)
   assert.deepEqual(refs, ['docs/missing dir/spec.md'])
 })
+
+test('version strings are not path references', () => {
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/next-actions.md': tree['memory/next-actions.md'] + '\nTag `v1.1.0`; needs Node `18.20.4`; try `2.0.0-rc.1`.\n',
+  })
+  cleanupAfter(test, root)
+  assert.deepEqual(findingsOf(validateMemory(root), 'broken-reference'), [])
+})

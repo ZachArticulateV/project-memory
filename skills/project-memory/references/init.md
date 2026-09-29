@@ -157,8 +157,11 @@ exist.
 
 ### 3e. Integrate CLAUDE.md
 
-If no `CLAUDE.md` exists, create one using the structural guide in Section 5 and
-insert the memory section from `templates/claude-md-section.md`.
+Claude Code reads both `CLAUDE.md` and `.claude/CLAUDE.md`. If either exists,
+integrate into the one that does (the root file when both do); create a root
+`CLAUDE.md` only when neither exists, using the structural guide in Section 5
+and the memory section from `templates/claude-md-section.md`. A second contract
+file beside an existing one splits the project's instructions in two.
 
 If one exists, read all of it before changing any of it, then classify every
 section into one of five buckets:

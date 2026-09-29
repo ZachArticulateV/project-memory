@@ -1,6 +1,10 @@
 # Quickstart
 
-Your first project memory, start to finish, in about fifteen minutes. No prior
+Your first project memory, start to finish, in about fifteen minutes.
+
+This guide describes version 1.1.0 or later. `/plugin` shows the installed
+version; on 1.0.0, `grill`, handoff focus, the glossary, and `AGENTS.md`
+support are not available yet. No prior
 knowledge of this plugin is assumed. If a word is unfamiliar, it is defined in
 [Words you will see](#words-you-will-see) at the bottom.
 
@@ -70,9 +74,19 @@ sessions at the memory files. It does not copy them in, so it stays small.
 ## 4. Commit it
 
 ```bash
-git add memory/ CLAUDE.md .claude/rules/memory-writing.md
+git add memory
+git status
+```
+
+Then add each file `init` reported writing outside `memory/`, for example:
+
+```bash
+git add CLAUDE.md .claude/rules/memory-writing.md
 git commit -m "Add project memory"
 ```
+
+Add only files that exist: `git add` stops on a name it cannot find. Yours may
+be `.claude/CLAUDE.md` instead of `CLAUDE.md`, and may include `AGENTS.md`.
 
 Commit before you move on. The plugin detects stale memory by comparing each
 memory file's last commit with later code changes, so uncommitted memory cannot

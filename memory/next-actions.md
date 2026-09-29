@@ -13,8 +13,11 @@ Each item names an observable outcome. "Improve the backend" is not an action.
 
 ## Next
 
-- [ ] Observe the new CI memory-validation step on a GitHub run
-- [ ] Bump the version for the next release and move Unreleased in the changelog
+- [ ] Open a pull request for 1.1.0 and observe CI, including the memory-validation step
+- [ ] Tag `v1.1.0` on main after merge and set the changelog date
+- [ ] Point the ZachArticulateV/claude-plugins marketplace entry at `v1.1.0`
+  - Done when: `/plugin install project-memory@zacharticulatev` installs 1.1.0 and `/project-memory grill` routes
+  - Out of scope: other plugins in that marketplace
 
 ## Blocked
 

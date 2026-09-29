@@ -4,7 +4,9 @@ All notable changes to this plugin are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0] — Unreleased
+
+Prepared on this branch; the date is set when it is tagged.
 
 ### Added
 
@@ -54,7 +56,7 @@ All notable changes to this plugin are documented here. Format follows
 - **The glossary is outside change-based staleness**: it defines vocabulary,
   names no implementation, and no longer goes stale on unrelated code edits.
 - **This repository tracks itself in `memory/`**: a reconstructed brief, a
-  glossary, six decision records (two of them `Not:` rejections), current
+  glossary, seven decision records (two of them `Not:` rejections), current
   state, a handoff, next actions, risks, and acceptance criteria.
 
 ### Fixed

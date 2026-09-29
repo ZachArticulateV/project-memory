@@ -130,8 +130,9 @@ A GitHub Actions job for your own project:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      # Pin a tag or commit of the plugin rather than tracking main.
-      - run: git clone --depth 1 --branch v1.0.0 https://github.com/ZachArticulateV/project-memory "$RUNNER_TEMP/project-memory"
+      # Pin a tag or commit of the plugin rather than tracking main. v1.1.0 or
+      # later validates everything described here (glossary, AGENTS.md).
+      - run: git clone --depth 1 --branch v1.1.0 https://github.com/ZachArticulateV/project-memory "$RUNNER_TEMP/project-memory"
       - run: node "$RUNNER_TEMP/project-memory/scripts/memory-validate.mjs"
 ```
 
