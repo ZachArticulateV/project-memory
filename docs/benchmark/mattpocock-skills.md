@@ -10,7 +10,9 @@ The benchmark is therefore pattern-by-pattern, not wholesale: adopt what makes
 continuation, alignment, and portability sharper, and keep the verification
 gates that Matt's skills do not attempt.
 
-Reviewed at upstream commit `HEAD` of `main`, 2026-09-29.
+Reviewed at upstream `main` commit `c55ee46` (2026-09-18), on 2026-09-29.
+Re-run the comparison when upstream ships a new handoff, grilling, or
+domain-modeling revision.
 
 ## Scorecard
 
@@ -35,9 +37,37 @@ iteration that adopted it. `-` means the pattern was absent.
 | Codex | Harness-neutral pointer (`AGENTS.md`) to the same memory | - | Adopted, validated and hooked | 4 |
 | Codex | Clean handoff into a Codex session | - | Adopted (launch line) | 4 |
 | Codex | Skill runs outside Claude Code (variables resolved by the agent) | - | Adopted | 4 |
-| Project mgmt | Agent brief: behavioral, durable, testable, explicit out-of-scope | Partial | Planned | 5 |
-| Project mgmt | Out-of-scope record for rejected ideas | Partial (brief) | Planned | 5 |
-| Writing | Context pointers, leading words, no-op pruning, positive prompting | Partial | Planned | 5 |
+| Project mgmt | Agent brief: behavioral, durable, testable, explicit out-of-scope | Partial | Adopted in `next-actions` | 5 |
+| Project mgmt | Out-of-scope record for rejected ideas | Partial (brief) | Adopted as `Not:` decisions | 5 |
+| Writing | Context pointers: one trigger per branch, prune always-loaded text | Partial | Adopted (description -19%) | 5 |
+
+## The benchmark
+
+What a project-memory system should do, set from this comparison. Each line
+is met by this plugin and pinned by a test unless marked otherwise.
+
+1. **A handoff is a pointer, not a summary.** It names the next session's
+   focus, links the artifacts that hold detail, names the commands to run
+   next, and ends with a paste-ready prompt for any agent.
+2. **A handoff never claims a verification nobody observed.** `Not run` is a
+   required entry.
+3. **Alignment before building.** A plan is grilled in frontier rounds with a
+   recommended answer per question; facts are looked up, decisions are asked.
+4. **What the grilling settles is written, and nothing else is.** Only after
+   the user confirms, each item to one home.
+5. **Decisions are scarce.** A record only when hard to reverse, surprising,
+   and a real trade-off. Rejections count, so they are not re-litigated.
+6. **One word per concept, checked.** A glossary with `_Avoid_` aliases, and a
+   validator that flags rejected words in memory.
+7. **Delegated work is a brief.** Behavior, a checkable `Done when`, and an
+   `Out of scope`; durable against file moves.
+8. **Every agent finds the same memory.** `CLAUDE.md` and `AGENTS.md` carry
+   the same pointer, and both are validated.
+9. **The skill runs outside its home harness.** Instructed, not substituted:
+   the Codex path is an instruction a model follows (see
+   `docs/limitations.md`).
+10. **Always-loaded text is pruned hardest.** The skill description triggers
+    every mode with one phrase per branch.
 
 ## Where this plugin already exceeds the benchmark
 
@@ -172,3 +202,37 @@ Changed files: `agents/openai.yaml` (new), `SKILL.md`, `references/init.md`,
 `scripts/lib/memory-model.mjs`, `scripts/memory-validate.mjs`,
 `hooks/hooks.json`, `rules/memory-writing.md`, both manifests, docs,
 `tests/codex.test.mjs` (new), `tests/hooks.test.mjs`.
+
+### Iteration 5: project management and writing
+
+Adopted from upstream `triage/AGENT-BRIEF.md`, `.out-of-scope/`, and
+`writing-for-agents`:
+
+- `next-actions.md` items that another agent will pick up carry
+  `Done when` and `Out of scope` sub-bullets, written behaviorally and
+  durably (interfaces and behavior, not file and line). A Codex or background
+  handoff of one such item carries both lines into its prompt verbatim.
+- Rejected ideas that will likely come back are decision records titled
+  `Not: <idea>`. The interview checks them and asks what changed rather than
+  re-opening the question.
+- The writing rule gains "Write delegated work as a brief".
+- The always-loaded skill description was rewritten to one trigger per branch:
+  742 to 601 characters, same modes reachable, the non-trigger clause intact.
+
+## Result
+
+Nineteen upstream patterns scored: eighteen adopted across the five
+iterations, one already in place (lazy creation). Five upstream choices were
+rejected, each with a reason. Where the
+plugin goes further than upstream: evidence-gated handoffs, grilling that
+writes only confirmed items, a glossary the validator enforces, and a Codex
+path that is tested rather than assumed.
+
+Not taken, and worth a later look:
+
+- **`wait-what`** (re-pitch an unclear message in the project's vocabulary):
+  cheap to add as a sentence in the handoff and grill playbooks once the
+  glossary is in use on a real project.
+- **`retro`** (improve the agent's environment after a session): overlaps
+  `audit`; a `retro` over memory friction could feed `sync`.
+- **`CONTEXT-MAP.md`**: only if a multi-context monorepo adopts the plugin.

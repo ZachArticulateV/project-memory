@@ -123,3 +123,21 @@ test('the schema gates decision records on the three-part test', () => {
     assert.ok(schema.includes(gate), `memory-schema.md is missing the decision gate: ${gate}`)
   }
 })
+
+test('next actions carry the agent-brief contract for delegated items', () => {
+  const body = readTemplate('next-actions.md')
+  assert.match(body, /^  - Done when: \{\{[a-z_]+\}\}$/m)
+  assert.match(body, /^  - Out of scope: \{\{[a-z_]+\}\}$/m)
+  // Durability: a delegated item outlives the line numbers it might cite.
+  assert.match(body, /not line numbers/)
+  const flatSchema = schema.replace(/\s+/g, ' ')
+  assert.match(flatSchema, /\*\*Ready to delegate:\*\*/)
+  assert.match(flatSchema, /behaviorally and durably/)
+})
+
+test('rejected ideas are recorded as decisions and checked before re-opening', () => {
+  const flatSchema = schema.replace(/\s+/g, ' ')
+  assert.match(flatSchema, /Rejected ideas are decisions too/)
+  const interview = readFileSync(join(skillDir, 'references', 'interview.md'), 'utf8')
+  assert.match(interview, /A recorded rejection \(`Not: \.\.\.`\)/)
+})

@@ -37,12 +37,19 @@ All notable changes to this plugin are documented here. Format follows
   is another agent, and never runs it.
 - **`AGENTS.md` is governed.** The validator scans it, the post-edit hook fires
   on it, and the writing rule loads for it.
+- **Delegated next actions.** Items another agent will pick up carry `Done
+  when` and `Out of scope` sub-bullets, written behaviorally rather than by
+  file and line. A handoff of one such item carries both into its prompt.
+- **Rejected ideas** are decision records titled `Not: <idea>`, and the
+  interview checks them before a settled question is re-opened.
 - **`docs/benchmark/mattpocock-skills.md`**: the adopted and rejected patterns
   from mattpocock/skills, with a scorecard.
 
 ### Changed
 
 - Handoff redaction covers personal data, not only secret values.
+- The skill description now lists one trigger per mode (742 to 601
+  characters), since it loads in every session.
 - Decision records are gated on a three-part test everywhere (`init`, `sync`,
   `grill`): hard to reverse, surprising without context, a real trade-off.
 

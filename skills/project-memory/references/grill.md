@@ -60,7 +60,8 @@ making any. Each settled item goes to exactly one home:
 | A decision that is hard to reverse, surprising without context, and the result of a real trade-off | New record in `memory/decisions/`, status `accepted` |
 | A decision that replaces an accepted record | New record, plus the old one marked `superseded`, linked both ways |
 | A change to project purpose or scope | Decision record. `project-brief.md` stays frozen. |
-| Concrete work with an observable outcome | `memory/next-actions.md`, under Now or Next |
+| Concrete work with an observable outcome | `memory/next-actions.md`, under Now or Next, with `Done when` and `Out of scope` when another agent will pick it up |
+| An idea the user rejected that will likely come back | Decision record titled `Not: <idea>`, with the reason |
 | A branch the user left open | `memory/next-actions.md` under Blocked, naming the open question as the blocker |
 | Done criteria for a feature | `memory/acceptance-criteria.md`, status `unverified` |
 | The plan's target architecture | `memory/current-state.md`, under Intended direction only |

@@ -186,6 +186,21 @@ another's. See `handoff.md` playbook.
 verification timeout with request timing captured" is an action. "Improve
 backend" is not. Blocked items name what blocks them.
 
+**Ready to delegate:** an item another agent will pick up carries two
+sub-bullets, in the shape of an agent brief:
+
+- `Done when:` one or more independently checkable criteria. "Refresh retries
+  stop after three attempts and surface `AuthExpiredError`" is checkable.
+  "Auth works" is not.
+- `Out of scope:` what the item will deliberately not touch, or `none`. This is
+  what stops a delegated agent gold-plating adjacent work.
+
+Write delegated items **behaviorally and durably**: name the behavior, the
+interface, the type, or the command, not the file and line. The item may sit
+for weeks while files move; a behavioral description survives that and a line
+number does not. Items the current session will do next need neither
+sub-bullet.
+
 **Lifecycle:** a punch list, not a historical record. Completed items are removed
 once their completion is reflected in current state, decisions, Git, or archive.
 
@@ -284,6 +299,14 @@ date: YYYY-MM-DD
 
 **And sections:** Context, Decision, Why, Alternatives considered, Consequences,
 Evidence / implementation, Supersedes.
+
+**Rejected ideas are decisions too.** When a feature or approach is declined
+and is likely to be proposed again, record it: title it as the rejection
+(`Not: server-side rendering`), put the reason under Why, and list where it
+was requested. `grill` and `init` check these records before re-opening a
+settled question. Upstream projects keep these in an `.out-of-scope/`
+directory; here they are ordinary decision records, so they supersede and
+index like any other.
 
 **Lifecycle:** append and supersede. Historical decisions are never rewritten to
 make an old choice look like the current one was always intended. When a decision

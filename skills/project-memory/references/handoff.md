@@ -187,6 +187,10 @@ Verify before relying on: the retry path has no passing test yet.
 First step: run node --test tests/auth and confirm the timeout reproduces.
 ```
 
+When the continuation is one delegated item from `next-actions.md`, carry its
+`Done when` and `Out of scope` lines into the prompt verbatim: they are the
+contract the other agent works to.
+
 When the next session is another agent, say so in the prompt and add one line
 for it. The focus names the target: `/project-memory handoff for codex: finish
 the refresh-token retry`.

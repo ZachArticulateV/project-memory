@@ -68,6 +68,7 @@ When memory exists, every answer is checked against it as it lands:
 | Answer conflicts with | Say |
 | --- | --- |
 | An accepted decision record | Name the record. Superseding it is a decision in its own right, with its own question. |
+| A recorded rejection (`Not: ...`) | Name the record and its reason. Ask what changed since, not whether to do it. |
 | `project-brief.md` out-of-scope boundaries | Name the boundary. Widening scope is a decision, not a side effect. |
 | `current-state.md` current reality | The plan assumes something that does not work today. Surface the gap. |
 | An open entry in `bugs-and-risks.md` | Name the risk the plan walks into. |

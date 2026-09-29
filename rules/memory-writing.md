@@ -102,6 +102,13 @@ word listed under `_Avoid_` is a synonym the project has already rejected; the
 validator flags it. A new project-specific term goes into the glossary the
 moment it is settled, not at the end.
 
+## Write delegated work as a brief
+
+A next action another agent will pick up states the behavior wanted, a `Done
+when` line anyone can check, and an `Out of scope` line. Name interfaces and
+behaviors, not file paths and line numbers, which go stale while the item
+waits.
+
 ## Avoid duplicate and stale tasks
 
 Remove completed items from `next-actions.md` once their completion is reflected
