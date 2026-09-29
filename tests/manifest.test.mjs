@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -48,4 +48,12 @@ test('keywords is an array, not a string', () => {
 test('version is a semver string', () => {
   const { version } = readManifest('.claude-plugin/plugin.json')
   assert.match(version, /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/)
+})
+
+test('the plugin root carries no CLAUDE.md', () => {
+  // `claude plugin validate --strict` warns that a root CLAUDE.md in a plugin
+  // is not loaded as plugin context, and --strict fails on the warning. This
+  // repository's own instructions live at .claude/CLAUDE.md instead.
+  assert.equal(existsSync(join(repoRoot, 'CLAUDE.md')), false)
+  assert.equal(existsSync(join(repoRoot, '.claude', 'CLAUDE.md')), true)
 })

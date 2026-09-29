@@ -8,7 +8,7 @@
 //     dependent for no gain; node:path still does all real path work.
 
 import { readFileSync, realpathSync, statSync, readdirSync } from 'node:fs'
-import { isAbsolute, join, relative, sep } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 
 /** Directories never worth walking for memory content. */
 const SKIP_DIRS = new Set(['.git', 'node_modules', '.next', 'dist', 'build', '.venv', '__pycache__'])
@@ -131,7 +131,12 @@ export function lineOf(text, index) {
 }
 
 /** Recursively list files under a directory, sorted, as absolute paths. */
-export function listFiles(absDir, { extension = null, maxDepth = 12 } = {}) {
+/**
+ * `includeFileLinks` also returns symbolic links that resolve to files, so a
+ * caller that checks containment can report a link escaping the repository
+ * instead of never seeing it. Links to directories are never followed.
+ */
+export function listFiles(absDir, { extension = null, maxDepth = 12, includeFileLinks = false } = {}) {
   const out = []
   const walk = (dir, depth) => {
     if (depth > maxDepth) return
@@ -146,7 +151,9 @@ export function listFiles(absDir, { extension = null, maxDepth = 12 } = {}) {
       if (SKIP_DIRS.has(entry.name)) continue
       const abs = join(dir, entry.name)
       if (entry.isDirectory()) walk(abs, depth + 1)
-      else if (entry.isFile() && (extension === null || entry.name.endsWith(extension))) out.push(abs)
+      else if (extension !== null && !entry.name.endsWith(extension)) continue
+      else if (entry.isFile()) out.push(abs)
+      else if (includeFileLinks && entry.isSymbolicLink() && statSafe(abs)?.isFile() === true) out.push(abs)
     }
   }
   walk(absDir, 0)
@@ -159,4 +166,27 @@ export function fileFacts(absPath) {
   if (stat === null || !stat.isFile()) return { present: false, lines: 0, bytes: 0 }
   const text = readTextSafe(absPath) ?? ''
   return { present: true, lines: countLines(text), bytes: stat.size }
+}
+
+/**
+ * The project root for a working directory: the nearest ancestor (the start
+ * included) holding `memory/INDEX.md`, not climbing past the Git root; else
+ * the Git root; else the start itself.
+ *
+ * A session opened in `src/` must see the tree at the repository root rather
+ * than report no memory and invite a second `init` in `src/memory/`. The
+ * marker is `memory/INDEX.md`, not a bare `memory/` directory, because plenty
+ * of codebases have a source folder called memory. Only stat calls: this runs
+ * on the session-start hot path.
+ */
+export function findProjectRoot(start) {
+  const origin = resolve(start)
+  let dir = origin
+  for (;;) {
+    if (statSafe(join(dir, 'memory', 'INDEX.md'))?.isFile() === true) return dir
+    if (statSafe(join(dir, '.git')) !== null) return dir
+    const parent = dirname(dir)
+    if (parent === dir) return origin
+    dir = parent
+  }
 }

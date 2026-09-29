@@ -29,10 +29,10 @@
 // report.
 
 import { fileURLToPath } from 'node:url'
-import { basename, isAbsolute, relative, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 
-import { isDirectory, joinRel, toPosix } from './lib/fs-utils.mjs'
-import { CLAUDE_MD_SCOPE, MEMORY_DIRNAME } from './lib/memory-model.mjs'
+import { findProjectRoot, isDirectory, joinRel, statSafe, toPosix } from './lib/fs-utils.mjs'
+import { CLAUDE_MD_SCOPE, GLOSSARY_FILENAME, MEMORY_DIRNAME } from './lib/memory-model.mjs'
 import { STRUCTURAL_DISCLAIMER } from './lib/report.mjs'
 import { validateMemory } from './memory-validate.mjs'
 
@@ -66,7 +66,28 @@ export function editedPath(payload) {
   return null
 }
 
-const caseFold = (value) => (process.platform === 'win32' ? value.toLowerCase() : value)
+/**
+ * Whether paths under `root` compare case-insensitively.
+ *
+ * Case sensitivity belongs to the filesystem, not the platform: macOS disks
+ * are usually case-insensitive, and Linux can mount one too. So ask the disk:
+ * stat the root under its own name and under a case-swapped name, and see
+ * whether both reach the same inode. A root whose name has no letters falls
+ * back to the platform default.
+ */
+export function filesystemFoldsCase(root) {
+  const abs = resolve(root)
+  const name = basename(abs)
+  const swapped = [...name].map((c) => (c === c.toLowerCase() ? c.toUpperCase() : c.toLowerCase())).join('')
+  const fallback = process.platform === 'win32' || process.platform === 'darwin'
+  if (swapped === name) return fallback
+  const actual = statSafe(abs)
+  if (actual === null) return fallback
+  const other = statSafe(join(dirname(abs), swapped))
+  return other !== null && other.ino === actual.ino && other.dev === actual.dev
+}
+
+const folder = (foldCase) => (value) => (foldCase ? value.toLowerCase() : value)
 
 /**
  * True when an edited path is one this hook has anything to say about: inside
@@ -82,8 +103,9 @@ const caseFold = (value) => (process.platform === 'win32' ? value.toLowerCase() 
  * Paths outside the project root are always false — a validation report about
  * another repository's file would be noise at best.
  */
-export function isMemoryScoped(root, filePath) {
+export function isMemoryScoped(root, filePath, { foldCase = filesystemFoldsCase(root) } = {}) {
   if (typeof filePath !== 'string' || filePath.trim() === '') return false
+  const caseFold = folder(foldCase)
 
   const abs = isAbsolute(filePath) ? resolve(filePath) : resolve(root, filePath)
   const rel = toPosix(relative(resolve(root), abs))
@@ -101,12 +123,30 @@ export function isMemoryScoped(root, filePath) {
  * suppressing it there would hide exactly the finding this hook exists for.
  * Warnings only for the edited file: a pre-existing size warning three files
  * away is not news, and repeating it on every memory edit is how a warning
- * channel gets tuned out.
+ * channel gets tuned out. One exception: an edit to the glossary changes which
+ * words are avoided everywhere, so its `avoided-term` warnings in every file
+ * are news, and they are reported.
+ *
+ * Paths compare case-folded on a case-insensitive filesystem, matching
+ * isMemoryScoped, so an edit reported as `agents.md` still selects findings
+ * about `AGENTS.md` there.
  */
-export function selectFindings(findings, editedRel) {
-  return findings.filter(
-    (f) => f.severity === 'error' || (f.severity === 'warning' && f.artifact === editedRel)
-  )
+export function selectFindings(
+  findings,
+  editedRel,
+  // Callers that know the root pass filesystemFoldsCase(root); without one,
+  // the same platform fallback filesystemFoldsCase uses.
+  { foldCase = process.platform === 'win32' || process.platform === 'darwin' } = {}
+) {
+  const caseFold = folder(foldCase)
+  const edited = caseFold(editedRel)
+  const glossaryEdited = edited === caseFold(`${MEMORY_DIRNAME}/${GLOSSARY_FILENAME}`)
+  return findings.filter((f) => {
+    if (f.severity === 'error') return true
+    if (f.severity !== 'warning') return false
+    if (caseFold(String(f.artifact)) === edited) return true
+    return glossaryEdited && f.check === 'avoided-term'
+  })
 }
 
 const SEVERITY_ORDER = { error: 0, warning: 1, info: 2 }
@@ -121,7 +161,7 @@ export function renderFindings(findings) {
       String(a.artifact).localeCompare(String(b.artifact))
   )
 
-  const out = ['project-memory: structural validation of `memory/` found:']
+  const out = ['project-memory: structural validation of project memory found:']
   for (const f of sorted.slice(0, MAX_FINDINGS)) {
     const where = f.line ? `${f.artifact}:${f.line}` : f.artifact
     out.push(`- ${f.severity} [${f.check}] \`${where}\` — ${f.message}`)
@@ -141,7 +181,8 @@ export function renderFindings(findings) {
 export function validationContext(root, filePath) {
   const absRoot = resolve(root)
   if (!isDirectory(absRoot)) return null
-  if (!isMemoryScoped(absRoot, filePath)) return null
+  const foldCase = filesystemFoldsCase(absRoot)
+  if (!isMemoryScoped(absRoot, filePath, { foldCase })) return null
 
   // No memory tree means nothing to validate, even for a CLAUDE.md edit.
   if (!isDirectory(joinRel(absRoot, MEMORY_DIRNAME))) return null
@@ -150,7 +191,7 @@ export function validationContext(root, filePath) {
   const editedAbs = isAbsolute(filePath) ? resolve(filePath) : resolve(absRoot, filePath)
   const editedRel = toPosix(relative(absRoot, editedAbs))
 
-  return renderFindings(selectFindings(result.findings, editedRel))
+  return renderFindings(selectFindings(result.findings, editedRel, { foldCase }))
 }
 
 /** Parse a hook payload without ever throwing. Returns {} for anything unusable. */
@@ -167,7 +208,7 @@ export function parsePayload(raw) {
 /** The project directory a payload points at, falling back to the process cwd. */
 export function payloadRoot(payload) {
   const cwd = payload?.cwd
-  return typeof cwd === 'string' && cwd.trim() !== '' ? cwd : process.cwd()
+  return findProjectRoot(typeof cwd === 'string' && cwd.trim() !== '' ? cwd : process.cwd())
 }
 
 /** Build the stdout JSON document for a non-null context string. */

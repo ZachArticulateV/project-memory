@@ -1,6 +1,6 @@
 # Project Memory
 
-A version-controlled project context architecture for Claude Code.
+A version-controlled project context architecture for Claude Code and Codex.
 
 A fresh Claude session opens your repository knowing nothing about it. The usual
 patch — a growing pile of Markdown notes — fails in a specific way: notes inflate,
@@ -13,6 +13,18 @@ The system optimizes for accuracy, low context overhead, reliable continuation,
 resistance to stale information, and evidence-backed project state. The objective
 is not to continuously fill memory. It is to keep memory continuously accurate,
 minimal, retrievable, and sufficient.
+
+## Start here
+
+| You are | Read |
+| --- | --- |
+| New to this plugin | [`docs/quickstart.md`](docs/quickstart.md): install to first handoff in about fifteen minutes, with every term defined |
+| Using it day to day | [What you actually need](#what-you-actually-need), below |
+| Running several branches, Codex, CI, or a team | [`docs/advanced.md`](docs/advanced.md) |
+
+**Requirements:** Claude Code (or Codex), Node 18 or later. Git is optional
+but strongly recommended: without it, the plugin cannot tell you when memory
+has fallen behind the code.
 
 ## Install
 
@@ -27,6 +39,14 @@ minimal, retrievable, and sufficient.
 Adding the marketplace installs nothing on its own — it just makes the plugins
 listed there available. Install only the ones you want.
 
+**Codex:** the repository also ships `.codex-plugin/plugin.json`, so the same
+skill installs as a Codex plugin. `init` writes the memory pointer into
+`AGENTS.md` as well as `CLAUDE.md` (when the project has an `AGENTS.md`, or on
+request), and `/project-memory handoff for codex: <focus>` prints a ready
+`codex "..."` launch line. The Claude Code hooks do not run under Codex, so run
+`status` at the start of substantial work. Details are in
+[`docs/advanced.md`](docs/advanced.md#codex).
+
 ## Use
 
 ```bash
@@ -38,17 +58,18 @@ listed there available. Install only the ones you want.
 | `/project-memory init` | Inspect the project and build the memory system. Reconstructs state for mature repos; interviews you for new ones. |
 | `/project-memory status` | Read-only health report. Never writes. |
 | `/project-memory sync` | Reconcile memory with what actually changed. Idempotent — often reports no changes required. |
-| `/project-memory handoff` | Capture continuation state before `/clear`, a context switch, or the end of a session. |
+| `/project-memory handoff [focus]` | Capture continuation state before `/clear`, a context switch, or the end of a session. Optional focus tailors it to the next session's job; ends with a paste-ready resume prompt. |
+| `/project-memory grill [plan]` | Interview you about a plan in rounds, checking each answer against memory and code, then record the decisions and actions it settled. |
 | `/project-memory audit` | Independently check memory against repository reality. Returns evidence, not edits. |
-| `/project-memory repair` | Correct the problems an audit found, preserving valid human-authored context. |
+| `/project-memory repair` | Correct the problems an audit or the validator found, preserving valid human-authored context. |
 
 Each mode loads exactly one playbook. Running `status` does not read the `audit`
 instructions, and neither of them costs anything during ordinary coding work.
 
 ## What you actually need
 
-You do not need to learn six commands. You need two, and the rest are there for
-when something has gone wrong.
+You do not need to learn seven commands. You need two, and the rest are there for
+when you are planning or when something has gone wrong.
 
 **Once, per project:**
 
@@ -77,17 +98,18 @@ what it must not assume.
 | Symptom | Command |
 | --- | --- |
 | "Is any of this still true?" | `/project-memory status` — read-only, safe any time |
+| "Before I build this, poke holes in it" | `/project-memory grill <plan>` |
 | "I just shipped something substantial" | `/project-memory sync` |
 | "Memory says something I do not believe" | `/project-memory audit` |
 | "The audit was right; fix it" | `/project-memory repair` |
 
 You do not have to remember to run `status`. When memory has drifted behind the
-code, a session-start line says so — naming the file and the change, not a
-calendar age. When memory is current, it says nothing at all.
+code, a session-start line says so, naming the memory file that trails the
+code rather than a calendar age. When memory is current, it says nothing at all.
 
 Nothing runs in the background and nothing rewrites your files on its own.
-Automatic rewriting produces volume, not accuracy, so every write is a command
-you typed.
+Automatic rewriting produces volume, not accuracy, so every write follows an
+explicit request from you.
 
 ## What it creates in your project
 
@@ -100,15 +122,19 @@ memory/
 ├── next-actions.md       executable punch list
 ├── bugs-and-risks.md     unresolved problems, with causes separated from hypotheses
 ├── acceptance-criteria.md  when the project has features worth verifying
+├── glossary.md           the project's own terms, and the words to avoid
 ├── decisions/            one immutable record per architectural decision
 └── archive/              rarely loaded
 ```
 
 Once a second branch or worktree is active, `handoff.md` becomes
-`handoffs/<branch>.md` — one per workstream, so neither can overwrite the other.
+`handoffs/<branch-slug>.md` — one per workstream, so neither can overwrite the
+other.
 
-Plus one section in your `CLAUDE.md` pointing at it, and a path-scoped rule in
-`.claude/rules/` that only loads when memory files are being edited.
+Plus one section in your `CLAUDE.md` (and `AGENTS.md`, if you use Codex)
+pointing at it, and a path-scoped rule in `.claude/rules/` that only loads when
+memory files are being edited. Commit all of it: staleness is measured from
+each memory file's last commit.
 
 Everything is plain Markdown committed to your repository. If you stop using the
 plugin, delete the directory.
@@ -140,6 +166,10 @@ criteria, and archives are fetched when the task makes them relevant.
 
 ## Deeper reading
 
+- [`docs/quickstart.md`](docs/quickstart.md) — the first run, step by step, and
+  a glossary of the terms used here.
+- [`docs/advanced.md`](docs/advanced.md) — worktrees, Codex, delegating to
+  other agents, `grill`, the glossary, CI, stronger audits, and team practice.
 - [`docs/architecture.md`](docs/architecture.md) — every component and why it
   exists, the full file tree, what Claude reads at each point in a session, the
   context budget, the safeguards, and how this interacts with native auto
@@ -147,10 +177,11 @@ criteria, and archives are fetched when the task makes them relevant.
 - [`docs/limitations.md`](docs/limitations.md) — what the system does not
   guarantee, including which acceptance scenarios are machine-verified and which
   are not.
+- [`docs/benchmark/mattpocock-skills.md`](docs/benchmark/mattpocock-skills.md) —
+  which patterns were adopted from mattpocock/skills, which were rejected, and
+  why.
 
-## Requirements
-
-Node 18 or later. Git is used when present and is not required.
+## Platforms
 
 Works on Windows, macOS, Linux, and WSL. Every executable is Node — there is no
 shell assumption.

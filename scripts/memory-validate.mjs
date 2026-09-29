@@ -21,6 +21,7 @@ import {
   ANY_PLACEHOLDER,
   CLAUDE_MD_LINE_SIGNAL,
   CLAUDE_MD_SCOPE,
+  GLOSSARY_FILENAME,
   MEMORY_DIRNAME,
   MEMORY_FILE_BYTE_LIMIT,
   MEMORY_FILE_LINE_LIMIT,
@@ -31,6 +32,7 @@ import {
   findSecrets,
   isEmptySectionBody,
   isSchemaOptionalTarget,
+  maskNonProse,
   parseFrontmatter,
   parseSections,
   resolveReference,
@@ -56,6 +58,8 @@ export const CHECKS = [
   'secret-pattern',
   'duplicate-task',
   'escapes-repository',
+  'avoided-term',
+  'glossary-format',
 ]
 
 const finding = (check, severity, artifact, message, extra = {}) => ({
@@ -139,6 +143,7 @@ export function validateMemory(root) {
   }
 
   checkDuplicateDecisionIds(absRoot, memory, findings)
+  checkAvoidedTerms(absRoot, memory, findings)
 
   return buildResult(absRoot, scanned, findings, memory)
 }
@@ -229,7 +234,7 @@ function checkSize(text, rel, findings) {
   if (CLAUDE_MD_SCOPE.includes(rel)) {
     if (lines > CLAUDE_MD_LINE_SIGNAL) {
       findings.push(
-        finding('oversized-file', 'warning', rel, `${lines} lines (signal threshold ${CLAUDE_MD_LINE_SIGNAL}). CLAUDE.md loads on every session.`, {
+        finding('oversized-file', 'warning', rel, `${lines} lines (signal threshold ${CLAUDE_MD_LINE_SIGNAL}). ${rel} loads on every session.`, {
           lines,
           bytes,
           threshold: CLAUDE_MD_LINE_SIGNAL,
@@ -369,6 +374,216 @@ function checkDuplicateTasks(text, rel, findings) {
         { line: group[0].line, lines: group.map((t) => t.line), text: group[0].text }
       )
     )
+  }
+}
+
+/**
+ * Parse the glossary into its canonical terms and an alias -> term map.
+ *
+ * The accepted forms, stated in memory-schema.md:
+ *
+ *   **Term**: optional definition        (or **Term:**, or a "- " bullet before it)
+ *   Definition on the following line(s).
+ *   _Avoid_: alias, other alias;
+ *     a wrapped continuation of the list
+ *
+ * Any other bold line or heading ends the current term, so an `_Avoid_` line
+ * can never be credited to the term before it. An `_Avoid_` line with no term
+ * is returned in `unattributed`, so the validator can say the check is not
+ * seeing it instead of silently doing nothing.
+ */
+export function parseGlossary(text) {
+  const terms = []
+  const aliases = new Map()
+  const unattributed = []
+  let term = null
+  let inAvoid = false
+  const addAliases = (list) => {
+    for (const part of list.split(/[,;]/)) {
+      const alias = part.replace(/[*_`"]/g, '').trim().replace(/\.$/, '').trim()
+      if (alias === '' || alias.toLowerCase() === term.toLowerCase()) continue
+      aliases.set(alias.toLowerCase(), { alias, term })
+    }
+  }
+  const lines = maskNonProse(text).split(/\r?\n/)
+  lines.forEach((raw, index) => {
+    const line = raw.trim()
+    if (line === '') {
+      inAvoid = false
+      return
+    }
+    const bare = line.replace(/^[-*]\s+/, '')
+    const heading = /^\*\*(.+?)\*\*\s*:/.exec(bare) ?? /^\*\*(.+?):\*\*/.exec(bare)
+    if (heading) {
+      // A bold run with nothing in it (`** **:`) is not a term; kept, it would
+      // become an empty pattern that matches everywhere without advancing.
+      term = heading[1].trim() === '' ? null : heading[1].trim()
+      if (term !== null) terms.push(term)
+      inAvoid = false
+      return
+    }
+    if (bare.startsWith('**') || line.startsWith('#')) {
+      term = null
+      inAvoid = false
+      return
+    }
+    const avoid = /^[_*]Avoid[_*]\s*:\s*(.*)$/.exec(bare)
+    if (avoid) {
+      if (term === null) {
+        unattributed.push({ line: index + 1, text: line })
+        inAvoid = false
+        return
+      }
+      addAliases(avoid[1])
+      inAvoid = /[,;]\s*$/.test(avoid[1])
+      return
+    }
+    // A wrapped alias list continues only while the previous line ended with a
+    // separator, so a definition written straight after the list is not read
+    // as more aliases.
+    if (inAvoid && term !== null) {
+      addAliases(line)
+      inAvoid = /[,;]\s*$/.test(line)
+    }
+  })
+  return { terms, aliases, unattributed }
+}
+
+const MAX_AVOIDED_TERM_FINDINGS_PER_FILE = 20
+
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+/**
+ * A phrase as a whole-word pattern whose words may wrap across lines. Word
+ * edges are Unicode letters and digits, so "bistroé" does not contain "bistro".
+ */
+const phrasePattern = (phrase) =>
+  `(?<![\\p{L}\\p{N}_-])${phrase.trim().split(/\s+/).map(escapeRegex).join('\\s+')}(?![\\p{L}\\p{N}_-])`
+const blank = (m) => m.replace(/[^\n]/g, ' ')
+
+/**
+ * Every prose use of an avoided word in one document, as { index, match,
+ * alias, term }. Pure, so every edge case is testable without a tree.
+ *
+ * Code spans, fences, comments, link targets, and URLs are masked first: they
+ * quote identifiers and addresses rather than name concepts. Link TEXT is
+ * prose and is checked. An alias hit lying wholly inside a correct use of a
+ * canonical term ("account" within "Customer account") is dropped; an alias
+ * that merely contains a canonical term ("client account" around "Account")
+ * still counts.
+ */
+export function findAvoidedTerms(text, glossary) {
+  const { terms, aliases } = glossary
+  if (aliases.size === 0) return []
+
+  const prose = maskNonProse(text)
+    .replace(/`[^`\n]*`/g, blank)
+    .replace(/\]\([^)\n]*\)/g, blank)
+    .replace(/\bhttps?:\/\/\S+/g, blank)
+
+  const canonical = []
+  for (const term of terms) {
+    const re = new RegExp(phrasePattern(term), 'giu')
+    let m
+    while ((m = re.exec(prose)) !== null) {
+      if (m[0] === '') {
+        re.lastIndex += 1
+        continue
+      }
+      canonical.push([m.index, m.index + m[0].length])
+    }
+  }
+  const insideCanonical = (from, to) => canonical.some(([s, e]) => from >= s && to <= e)
+
+  const byLength = (a, b) => b.length - a.length
+  const ordered = [...aliases.values()].sort((a, b) => byLength(a.alias, b.alias))
+  const pattern = new RegExp(ordered.map((a) => `(${phrasePattern(a.alias)})`).join('|'), 'giu')
+  const found = []
+  let match
+  while ((match = pattern.exec(prose)) !== null) {
+    if (match[0] === '') {
+      pattern.lastIndex += 1
+      continue
+    }
+    if (insideCanonical(match.index, match.index + match[0].length)) continue
+    const group = match.slice(1).findIndex((g) => g !== undefined)
+    const { alias, term } = ordered[group]
+    found.push({ index: match.index, match: match[0].replace(/\s+/g, ' '), alias, term })
+  }
+  return found
+}
+
+/**
+ * A memory file using a word the glossary says to avoid.
+ *
+ * Warning, never error: a flagged word can be a legitimate quotation. Decision
+ * records and the archive are skipped because they are append-only history and
+ * a finding there could never be fixed without rewriting it. Findings are
+ * capped per file, with one summary finding for the rest, so a large file
+ * cannot flood the report or outrun the post-edit hook's timeout.
+ */
+function checkAvoidedTerms(root, memory, findings) {
+  const glossaryRel = `${MEMORY_DIRNAME}/${GLOSSARY_FILENAME}`
+  if (!memory.markdownFiles.includes(glossaryRel)) return
+  const glossaryText = readTextSafe(joinRel(root, glossaryRel))
+  if (glossaryText === null) return
+  const glossary = parseGlossary(glossaryText)
+  // An _Avoid_ line the parser could not attach to a term is a word the check
+  // will never enforce. Say so, rather than let the check quietly do less.
+  for (const orphan of glossary.unattributed) {
+    findings.push(
+      finding(
+        'glossary-format',
+        'warning',
+        glossaryRel,
+        'An _Avoid_ line with no term above it is not enforced. Put it under a `**Term**:` line (see memory-schema.md).',
+        { line: orphan.line }
+      )
+    )
+  }
+  if (glossary.aliases.size === 0) return
+
+  for (const rel of memory.markdownFiles) {
+    if (rel === glossaryRel) continue
+    if (isDecisionRecord(rel, memory)) continue
+    if (rel.startsWith(`${MEMORY_DIRNAME}/archive/`)) continue
+    const text = readTextSafe(joinRel(root, rel))
+    if (text === null) continue
+    const found = findAvoidedTerms(text, glossary)
+    const lineOfIndex = lineCounter(text)
+    for (const hit of found.slice(0, MAX_AVOIDED_TERM_FINDINGS_PER_FILE)) {
+      findings.push(
+        finding(
+          'avoided-term',
+          'warning',
+          rel,
+          `Uses "${hit.match}", which the glossary lists under _Avoid_ for **${hit.term}**.`,
+          { line: lineOfIndex(hit.index), alias: hit.alias, term: hit.term }
+        )
+      )
+    }
+    const rest = found.length - MAX_AVOIDED_TERM_FINDINGS_PER_FILE
+    if (rest > 0) {
+      findings.push(
+        finding('avoided-term', 'warning', rel, `${rest} more use(s) of avoided words in this file.`, {
+          line: lineOfIndex(found[MAX_AVOIDED_TERM_FINDINGS_PER_FILE].index),
+          more: rest,
+        })
+      )
+    }
+  }
+}
+
+/** Line numbers for ascending offsets, counted incrementally rather than per call. */
+function lineCounter(text) {
+  let line = 1
+  let at = 0
+  return (index) => {
+    if (index < at) {
+      line = 1
+      at = 0
+    }
+    for (; at < index && at < text.length; at += 1) if (text[at] === '\n') line += 1
+    return line
   }
 }
 

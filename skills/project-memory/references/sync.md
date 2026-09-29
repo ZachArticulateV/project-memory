@@ -49,7 +49,7 @@ changed. Files change constantly; concepts rarely.
 | What actually happened | What moves | What does not |
 | --- | --- | --- |
 | A bug was fixed | `bugs-and-risks.md`: entry resolved and archived | `project-brief.md`, always |
-| A capability now works that did not | `current-state.md` current-reality section | The intended-direction section |
+| A capability now works that did not | `current-state.md` current-reality section; remove or narrow the Intended direction entry it fulfils | An intended-direction entry the change did not fulfil |
 | A capability was verified for the first time | The verification line in `current-state.md` | Its status, if it already worked |
 | A task was completed | `next-actions.md`, once completion is reflected elsewhere | Anything else |
 | A new problem appeared | `bugs-and-risks.md`, with `Confirmed root cause: Unknown` | `current-state.md`, unless capability changed |
@@ -57,6 +57,8 @@ changed. Files change constantly; concepts rarely.
 | A decision was replaced | A new record, and `status: superseded` on the old one | The old record's body |
 | The structure of memory changed | `INDEX.md` | Everything else |
 | A feature's evidence changed | `acceptance-criteria.md` status and its cited evidence | The criterion text |
+| A project concept was renamed or split | `glossary.md`: new word as the entry, old word under `_Avoid_`; the old word replaced in current memory prose | Decision records and `archive/` |
+| A project concept was retired | `glossary.md`: its entry removed | Decision records that used it |
 
 Three cases deserve their own paragraph because they are where syncs go wrong.
 
@@ -67,13 +69,14 @@ and is now gone changes both; an internal correction nobody could observe
 changes only the bug record.
 
 **`project-brief.md` does not move.** It records what the project was for at the
-outset. A direction change creates a decision record; it never edits the brief.
+outset. The probe lists it under `historicalBehind`, not as stale, for the same
+reason as decision records. A direction change creates a decision record; it never edits the brief.
 The brief moves only when it was reconstructed and an uncertainty in it resolved
 — and then it moves as a correction to the reconstruction, with the evidence.
 
-**A decision record is never rewritten.** The probe can report a decision record
-as behind, because the record names the code that implemented it and that code
-changed. That is a signal about the evidence link, not about the decision. The
+**A decision record is never rewritten.** The probe lists a decision record under
+`staleness.historicalBehind` when the code it names has changed. It never counts
+it as stale, because no sync could clear it. That is a signal about the evidence link, not about the decision. The
 decision stayed the same; the implementation moved. If the decision itself was
 reversed, that is a new record and a `superseded` marker on the old one, which
 is a different action from editing.
@@ -101,8 +104,9 @@ exact shape that lets completed-looking work disappear.
 
 ## 4. Decision records
 
-Create one only when a decision actually occurred: an alternative existed, one
-was chosen, and a future session would need to respect the choice.
+Create one only when a decision actually occurred and passes the three-part
+test in `memory-schema.md`: hard to reverse, surprising without context, and a
+real trade-off between genuine alternatives.
 
 Most changes carry no decision. A bug fix that restores intended behavior is not
 a decision. A dependency bump is not a decision. Renaming a function is not a
@@ -111,7 +115,8 @@ the record — a decisions directory full of restatements of the stack is how th
 real decisions become unfindable.
 
 When a decision did occur, render `templates/decision-record.md`, take the next
-sequential id, and add the row to `decisions/INDEX.md`.
+sequential id, and add the row to `decisions/INDEX.md`. When a sync creates
+`glossary.md` or `acceptance-criteria.md`, add its line to `INDEX.md`.
 
 ## 5. External task state
 

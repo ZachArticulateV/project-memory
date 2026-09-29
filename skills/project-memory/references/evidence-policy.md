@@ -127,7 +127,7 @@ Canonical memory has exactly one writer: the coordinating session.
 
 Subagents, external evaluators, and parallel investigators may inspect, search,
 test, gather evidence, and recommend changes. They must not write to `memory/`,
-`CLAUDE.md`, or `.claude/rules/`.
+`CLAUDE.md`, `AGENTS.md`, or `.claude/rules/`.
 
 This matters most for `current-state.md` and `decisions/`, where two concurrent
 writers produce a document that is internally inconsistent in a way neither

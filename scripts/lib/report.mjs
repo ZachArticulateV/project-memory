@@ -6,7 +6,10 @@
 // summary says so, so that a clean run is never quoted back as "memory
 // verified".
 
+import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
+
+import { findProjectRoot, isDirectory } from './fs-utils.mjs'
 
 export const STRUCTURAL_DISCLAIMER =
   'Structural validation only. A clean result means the memory tree is well-formed. ' +
@@ -37,7 +40,15 @@ export function parseCliArgs(argv, { extraOptions = {} } = {}) {
       allowPositionals: true,
       strict: true,
     })
-    return { values, positionals, root: values.cwd ?? positionals[0] ?? process.cwd(), error: null }
+    // An explicit directory is used exactly; with none, the root is found from
+    // the working directory, so a run from a subdirectory sees the project's tree.
+    const explicit = values.cwd ?? positionals[0]
+    // A mistyped directory is a usage error, not "no memory here": exit 0 on a
+    // path that does not exist would let a CI job validate nothing and pass.
+    if (explicit !== undefined && !isDirectory(resolve(explicit))) {
+      return { values, positionals, root: explicit, explicit: true, error: `not a directory: ${explicit}` }
+    }
+    return { values, positionals, root: explicit ?? findProjectRoot(process.cwd()), explicit: explicit !== undefined, error: null }
   } catch (err) {
     return { values: { json: false, help: false }, positionals: [], root: process.cwd(), error: err.message }
   }
@@ -80,7 +91,26 @@ export function renderStateText(state) {
   }
 
   out.push('')
-  out.push(`CLAUDE.md: ${state.claudeMd.present ? `${state.claudeMd.lines} lines` : 'absent'}${state.claudeMd.large ? ' (large)' : ''}`)
+  if (!state.contract) {
+    out.push(`CLAUDE.md: ${state.claudeMd.present ? `${state.claudeMd.lines} lines` : 'absent'}${state.claudeMd.large ? ' (large)' : ''}`)
+  } else {
+    const present = state.contract.files.filter((c) => c.present)
+    out.push(`Contract files: ${present.length === 0 ? 'none (no CLAUDE.md, .claude/CLAUDE.md, or AGENTS.md)' : present.length}`)
+    for (const f of state.contract.files.filter((c) => c.present)) {
+      const how = f.escapes
+        ? 'resolves outside the repository; not read'
+        : f.hasMemorySection
+          ? 'memory section present'
+          : f.importsAgentsMd
+            ? 'imports AGENTS.md'
+            : 'no memory section'
+      out.push(bullet(`${f.path}: ${f.lines} lines${f.large ? ' (large)' : ''}, ${how}`))
+    }
+    if (state.contract.sectionsMatch === false) out.push(bullet('memory sections differ between contract files'))
+    if (state.memory.exists && state.contract.missingSection?.length > 0) {
+      out.push(bullet(`missing the memory section: ${state.contract.missingSection.join(', ')} (run init to add it)`))
+    }
+  }
 
   out.push('')
   if (!state.staleness.checkable) {
@@ -93,9 +123,15 @@ export function renderStateText(state) {
     )
   } else {
     out.push(`Staleness: ${state.staleness.staleFiles.length} memory file(s) behind referenced changes`)
-    for (const file of state.staleness.files.filter((f) => f.stale)) {
+    for (const file of state.staleness.files.filter((f) => f.stale && !f.historical)) {
       const paths = file.changes.map((c) => c.path).join(', ')
       out.push(bullet(`${file.path} — changed since last memory commit: ${paths}`))
+    }
+    // History is reported apart: decision records and the archive are never
+    // rewritten, so a moved evidence path is information for audit, not a
+    // reason to sync.
+    if (state.staleness.historicalBehind?.length > 0) {
+      out.push(bullet(`history naming changed paths (not stale; see audit): ${state.staleness.historicalBehind.length} file(s)`))
     }
     // R34: silence about a claim is not a healthy verdict about it. Here the
     // reasons differ per file, so each one is worth naming.

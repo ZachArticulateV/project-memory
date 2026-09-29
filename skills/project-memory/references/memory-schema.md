@@ -29,6 +29,7 @@ memory/
 ├── next-actions.md
 ├── bugs-and-risks.md
 ├── acceptance-criteria.md  (when the project has features worth verifying)
+├── glossary.md             (when the project has vocabulary of its own)
 ├── decisions/
 │   ├── INDEX.md
 │   └── NNN-slug.md
@@ -46,6 +47,17 @@ structural failure rather than a stylistic one. Never invent a different
 placeholder syntax, and never leave a token behind as a note-to-self — an
 unknown belongs in prose as an explicit unknown, not as an unrendered token.
 
+## References
+
+A path in a code span or a link target is a reference, and the validator
+checks that it exists. A reference is also a staleness trigger: when the path
+changes after the memory file was last committed, the probe reports the file
+as behind. Reference a path when a change to it should prompt a re-check of
+the claim beside it. The index files and the glossary are exempt, because
+they point and define rather than claim. A file the work has not created yet is marked `(new)`
+right after the span, as in ``add `test/cli.test.mjs` (new)``, so a plan is
+not reported as a broken link while a mistyped existing path still is.
+
 ## Templates
 
 Each row maps a template in `../templates/` to what it renders. This table is the
@@ -61,8 +73,9 @@ listed template that does not exist is a broken schema.
 | `next-actions.md` | `memory/next-actions.md` |
 | `bugs-and-risks.md` | `memory/bugs-and-risks.md` |
 | `acceptance-criteria.md` | `memory/acceptance-criteria.md` |
+| `glossary.md` | `memory/glossary.md` |
 | `decision-record.md` | one file under `memory/decisions/` |
-| `claude-md-section.md` | the memory section inserted into the project's `CLAUDE.md` |
+| `claude-md-section.md` | the memory section inserted into the project's `CLAUDE.md`, and into `AGENTS.md` when it has one |
 
 `memory/decisions/INDEX.md` and `memory/archive/` have no template. The decisions
 index is a short generated list whose shape follows from its entries, and the
@@ -104,9 +117,13 @@ creates a decision record; it does not edit this file.
 reconstructed rather than remembered, and must say so:
 
 ```text
-Origin: reconstructed
-Reconstructed: YYYY-MM-DD
+---
+origin: reconstructed
+reconstructed: YYYY-MM-DD
+---
+
 Evidence:
+
 - README
 - Git history
 - package configuration
@@ -159,6 +176,10 @@ what changed, what was actually verified, what remains unresolved, what
 hypotheses exist, what the next session should do first, and what it must not
 assume.
 
+**Also carries, when they apply:** the next session's focus, pointers to the
+artifacts that already hold detail (linked, never restated), and the commands
+or skills the next session should run.
+
 **Evidence requirements:** branch, and `HEAD` when Git exists; working-tree state
 when it matters; meaningful modified files; tests actually run with their actual
 results. A claim that tests pass is written only when a run was observed. An
@@ -179,6 +200,21 @@ another's. See `handoff.md` playbook.
 **Must contain:** concrete actions with an observable outcome. "Reproduce the
 verification timeout with request timing captured" is an action. "Improve
 backend" is not. Blocked items name what blocks them.
+
+**Ready to delegate:** an item another agent will pick up carries two
+sub-bullets, in the shape of an agent brief:
+
+- `Done when:` one or more independently checkable criteria. "Refresh retries
+  stop after three attempts and surface `AuthExpiredError`" is checkable.
+  "Auth works" is not.
+- `Out of scope:` what the item will deliberately not touch, or `none`. This is
+  what stops a delegated agent gold-plating adjacent work.
+
+Write delegated items **behaviorally and durably**: name the behavior, the
+interface, the type, or the command, not the file and line. The item may sit
+for weeks while files move; a behavioral description survives that and a line
+number does not. Items the current session will do next need neither
+sub-bullet.
 
 **Lifecycle:** a punch list, not a historical record. Completed items are removed
 once their completion is reflected in current state, decisions, Git, or archive.
@@ -220,10 +256,58 @@ verifying; entries update as evidence accumulates.
 **When to skip:** a project with no verifiable feature set does not need this
 file. Do not scaffold it empty.
 
+### `glossary.md`
+
+**Purpose:** The project's ubiquitous language. One canonical word per concept,
+so memory, code, and conversation name the same thing the same way, and a
+fresh session decodes the project's jargon without guessing.
+
+**Each entry carries:** the term in bold, a one- or two-sentence definition of
+what it is (not what it does), and an `_Avoid_:` line listing the words that
+must not stand in for it.
+
+**Accepted form:** the term line starts with `**Term**:` (or `**Term:**`,
+optionally after a `- ` bullet), the definition follows on the same line or
+the next, and `_Avoid_:` takes a comma- or semicolon-separated list that may
+wrap onto following lines until a blank line. An `_Avoid_` line with no term
+above it is reported by the `glossary-format` check, because nothing enforces
+it. A `Flagged ambiguities` section records words that
+meant two things and how each was resolved.
+
+**Belongs here:** concepts specific to this project. **Does not:** general
+programming concepts, implementation details (file paths included), or
+decisions. The glossary is a glossary and nothing else. Because it names no
+implementation, it is outside change-based staleness: the probe never reports
+it as behind a code change.
+
+**Lifecycle:** created lazily, when the first term is resolved. Updated inline
+the moment a term is settled. A renamed concept replaces its entry, and the old
+word joins `_Avoid_`. A retired concept's entry is removed; decision records that
+used the word keep it, because they are history.
+
+**Checked:** the validator warns wherever another memory file uses an
+`_Avoid_` word in prose. Decision records and the archive are exempt, since
+they are history.
+
 ### `decisions/`
 
 **Purpose:** An immutable record of architectural decisions and why they were
 made.
+
+**When a decision earns a record:** all three must hold.
+
+1. **Hard to reverse.** Changing course later has a real cost.
+2. **Surprising without context.** A future reader would ask why it was done
+   this way.
+3. **A real trade-off.** There were genuine alternatives and one was chosen for
+   specific reasons.
+
+If any is missing, there is no record: an easy reversal will just be reversed,
+an unsurprising choice raises no question, and a choice with no alternative
+has nothing to explain. What typically qualifies: architectural shape,
+integration patterns, technology with lock-in, scope boundaries (the explicit
+no-s), deliberate deviations from the obvious path, constraints invisible in
+the code, and rejected alternatives whose rejection is not obvious.
 
 **One record per decision**, named `NNN-slug.md` with a zero-padded sequential
 id. `decisions/INDEX.md` stays a concise list.
@@ -241,6 +325,15 @@ date: YYYY-MM-DD
 **And sections:** Context, Decision, Why, Alternatives considered, Consequences,
 Evidence / implementation, Supersedes.
 
+**Rejected ideas are decisions too.** When a feature or approach is declined
+and is likely to be proposed again, record it: title it as the rejection
+(`Not: server-side rendering`), put the reason under Why, and list where it
+was requested. The interview discipline that `grill` and `init` run checks these
+records before re-opening a settled question. A `Not:` record has `status:
+accepted` while the rejection stands. Upstream projects keep these in an `.out-of-scope/`
+directory; here they are ordinary decision records, so they supersede and
+index like any other.
+
 **Lifecycle:** append and supersede. Historical decisions are never rewritten to
 make an old choice look like the current one was always intended. When a decision
 changes: mark the old record superseded, create the replacement, and link them in
@@ -256,7 +349,7 @@ both directions.
 
 | Artifact | Behavior |
 | --- | --- |
-| `CLAUDE.md` | Stable; edited rarely |
+| `CLAUDE.md`, `AGENTS.md` | Stable; edited rarely; memory sections identical |
 | `project-brief.md` | Frozen, or reconstructed with evidence markers |
 | `INDEX.md` | Concise navigation; updated when structure changes |
 | `current-state.md` | Stale state replaced |
@@ -264,6 +357,7 @@ both directions.
 | `next-actions.md` | Completed work removed |
 | `bugs-and-risks.md` | Resolved issues archived |
 | `acceptance-criteria.md` | Status advances only with evidence |
+| `glossary.md` | Created lazily; terms replaced, old words move to `_Avoid_` |
 | `decisions/*` | Append and supersede; history preserved |
 | `archive/*` | Rarely loaded |
 
@@ -275,15 +369,15 @@ memory inflates.
 A normal substantive session reads only:
 
 ```text
-CLAUDE.md
+CLAUDE.md (or AGENTS.md, for Codex and other agents)
 memory/INDEX.md
 memory/current-state.md
 the active handoff
 memory/next-actions.md
 ```
 
-`bugs-and-risks.md`, individual decisions, acceptance criteria, and anything
-under `archive/` are retrieved when relevant. Archives are effectively never part
+`bugs-and-risks.md`, individual decisions, acceptance criteria, the glossary,
+and anything under `archive/` are retrieved when relevant. Archives are effectively never part
 of startup context.
 
 ## Who writes

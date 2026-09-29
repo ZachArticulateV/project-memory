@@ -15,6 +15,8 @@ Read individual decision records only when they bear on the current task.
 
 {{optional_acceptance_criteria_line}}
 
+{{optional_glossary_line}}
+
 ## Authority
 
 | Information | Authority |

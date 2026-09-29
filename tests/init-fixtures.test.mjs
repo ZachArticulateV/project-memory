@@ -160,3 +160,9 @@ test('playbook requires the writing rule to be installed and reported', () => {
 test('playbook does not present validation as accuracy', () => {
   assert.match(playbook, /structural validation is not semantic correctness/i)
 })
+
+test('init confirms the resolved root before writing when it differs from the working directory', () => {
+  const flat = readFileSync(join(repoRoot, 'skills', 'project-memory', 'references', 'init.md'), 'utf8').replace(/\s+/g, ' ')
+  assert.match(flat, /## 0\. Confirm where memory will live/)
+  assert.match(flat, /ask which they mean before writing/)
+})

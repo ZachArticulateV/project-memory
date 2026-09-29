@@ -3,8 +3,8 @@
 A read-only health report. It renders what the probe observed, says plainly what
 it could not check, and recommends a next mode when the evidence supports one.
 
-This mode never writes. Not to `memory/`, not to `CLAUDE.md`, not to
-`.claude/rules/`, not a scratch file. If reporting appears to require a write,
+This mode never writes. Not to `memory/`, not to `CLAUDE.md` or `AGENTS.md`,
+not to `.claude/rules/`, not a scratch file. If reporting appears to require a write,
 the report is wrong, not the contract.
 
 You have already run the state probe. Use its output rather than re-deriving.
@@ -19,8 +19,8 @@ node "${CLAUDE_SKILL_DIR}/../../scripts/memory-validate.mjs" --json
 ```
 
 The probe supplies the file, Git, handoff, size, and staleness facts. The
-validator supplies the structural findings — unresolved placeholders, broken
-references, duplicate decision ids, duplicate tasks, empty required sections.
+validator supplies the structural findings; its JSON `checks` array lists every
+check it ran, from unresolved placeholders to `avoided-term` wording.
 Neither modifies anything.
 
 Do not "tidy while you are in there." A status run that fixes a typo has broken
@@ -44,9 +44,12 @@ Answer each of these, from observed facts:
 | Is the working tree clean? | `git.dirty`, `git.changes` |
 | Is there an active handoff? | `handoff.active` |
 | Does it belong to this branch? | `handoff.matchesBranch` |
-| Has `CLAUDE.md` grown large? | `claudeMd.lines`, `claudeMd.large` |
+| Has `CLAUDE.md` grown large? | `claudeMd.lines`, `claudeMd.large`; for `.claude/CLAUDE.md` and `AGENTS.md`, `contract.files[].large` |
+| Do `CLAUDE.md` and `AGENTS.md` carry the memory section, and the same one? | `contract.missingSection`, `contract.sectionsMatch`, and their signals |
+| Does a glossary exist? | `memory.optional[]` |
 | When was memory last committed? | `staleness.files[].lastCommit` |
 | Is memory behind relevant changes? | `staleness.staleFiles` |
+| Has code named by a decision record or the archive moved? | `staleness.historicalBehind`: information for `audit`, never a reason to sync |
 | What could not be checked at all? | `staleness.unchecked` |
 | Do unresolved placeholders or structural problems remain? | validator findings |
 
@@ -113,8 +116,10 @@ A recommendation names the evidence that produced it.
 | Active handoff declares a different branch | `handoff`, and name both branches |
 | No handoff and unfinished work is likely | `handoff` |
 | Validator errors | `repair` |
+| `avoided-term` warnings | `repair`, rewording each to its glossary term |
+| A contract file missing the memory section, or the two sections differ | `init` Section 3e or 3f for that file |
 | Claims that could not be checked | `audit` — it is the only mode that can evaluate them |
-| `CLAUDE.md` over the size signal | `/doctor` for trim proposals; do not reimplement them here |
+| A contract file over the size signal | `/doctor` for trim proposals; do not reimplement them here |
 
 Weight the sync recommendation by what changed. A change to a path named by an
 open risk or by an active workstream matters more than a change to a path

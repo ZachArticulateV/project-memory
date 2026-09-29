@@ -12,7 +12,7 @@ will find it — memory is fluent, internally consistent, and written by somethi
 that sounds exactly like the thing evaluating it.
 
 **The auditor does not write.** It reads, judges, and returns evidence. Nothing
-in this mode edits `memory/`, `CLAUDE.md`, or `.claude/rules/`. Findings are
+in this mode edits `memory/`, `CLAUDE.md`, `AGENTS.md`, or `.claude/rules/`. Findings are
 recommendations; `repair` is where anything changes, and only after you decide.
 The classification taxonomy and the many-readers-one-writer rule are in
 `evidence-policy.md`.
@@ -171,14 +171,20 @@ Per artifact, the questions that earn their cost:
   evidence, or is it a hypothesis that got promoted? Are any of these fixed?
 - `acceptance-criteria.md` — does every verified entry cite evidence, and does
   that evidence still exist?
-- `decisions/` — does the code still reflect each accepted decision? A decision
+- `decisions/` — does the code still reflect each accepted decision? For a
+  `Not:` record, is the rejected thing still absent? A decision
   the implementation abandoned is a real finding, and the fix is a superseding
   record, never an edit to the original.
 - `project-brief.md` — has strategy drifted such that the brief describes a
   different project? That is a decision record, not a brief rewrite.
 - `next-actions.md` — is anything here already done, or duplicated?
 - `INDEX.md` — does the authority table name systems this project actually uses?
-- `CLAUDE.md` — does any instruction contradict the repository?
+- `CLAUDE.md` and `AGENTS.md` — does any instruction contradict the repository,
+  and do both carry the same memory section?
+- `glossary.md` — does each term still name a concept the code has? Is a
+  retired concept still defined, or a renamed one under its old word?
+- The active handoff — does its HEAD and working-tree state still describe this
+  checkout, and is anything under Verified unsupported?
 
 Also look for what is absent. A significant system with no memory entry is a
 `MISSING` finding, and it is the class of finding a confirmation-seeking pass

@@ -28,9 +28,13 @@ import {
 export const MEMORY_DIRNAME = 'memory'
 export const CLAUDE_MD = 'CLAUDE.md'
 export const NESTED_CLAUDE_MD = '.claude/CLAUDE.md'
+/** Codex, and most non-Claude agents, read AGENTS.md instead of CLAUDE.md. */
+export const AGENTS_MD = 'AGENTS.md'
 
 /**
- * Every CLAUDE.md this system claims responsibility for.
+ * Every project contract file this system claims responsibility for: the two
+ * CLAUDE.md forms Claude Code reads, and the AGENTS.md Codex reads. init writes
+ * the memory pointer into whichever of them the project uses.
  *
  * One list, because three places used to disagree. rules/memory-writing.md
  * declares `CLAUDE.md` and `.claude/CLAUDE.md`; the validator scanned only the
@@ -39,7 +43,7 @@ export const NESTED_CLAUDE_MD = '.claude/CLAUDE.md'
  * an edit to `vendor/thing/CLAUDE.md` triggered a validation run about a file
  * nothing in this system governs.
  */
-export const CLAUDE_MD_SCOPE = [CLAUDE_MD, NESTED_CLAUDE_MD]
+export const CLAUDE_MD_SCOPE = [CLAUDE_MD, NESTED_CLAUDE_MD, AGENTS_MD]
 export const DECISIONS_DIRNAME = 'decisions'
 export const HANDOFF_FILENAME = 'handoff.md'
 export const HANDOFFS_DIRNAME = 'handoffs'
@@ -54,7 +58,9 @@ export const CORE_MEMORY_FILES = [
 ]
 
 /** Files the schema creates only when the project calls for them. */
-export const OPTIONAL_MEMORY_FILES = ['acceptance-criteria.md']
+export const OPTIONAL_MEMORY_FILES = ['acceptance-criteria.md', 'glossary.md']
+
+export const GLOSSARY_FILENAME = 'glossary.md'
 
 /**
  * Locations the memory schema defines but does not require to exist.
@@ -67,15 +73,54 @@ export const OPTIONAL_MEMORY_FILES = ['acceptance-criteria.md']
  */
 export const SCHEMA_OPTIONAL_TARGETS = new Set([
   'archive',
+  // A project with no decision that passes the three-part test has no
+  // decisions/ yet, while INDEX.md, next-actions.md, and the brief still name it.
+  DECISIONS_DIRNAME,
   HANDOFFS_DIRNAME,
   ...OPTIONAL_MEMORY_FILES,
 ])
 
+/** The heading init renders the memory pointer under, in every contract file. */
+export const MEMORY_SECTION_HEADING = 'Project Memory'
+
+/**
+ * The memory section of a contract file: from its `## Project Memory` heading to
+ * the next level-two heading, whitespace-normalized so two copies that differ
+ * only in line wrapping or trailing spaces compare equal. Null when absent.
+ */
+export function extractMemorySection(text) {
+  const normalized = text.replace(/\r\n/g, '\n')
+  const lines = normalized.split('\n')
+  // Headings are found on the masked text, so a `## ` line inside a fence or a
+  // comment neither starts nor ends the section. Masking preserves line breaks.
+  const masked = maskNonProse(normalized).split('\n')
+  const start = masked.findIndex((l) => l.trim() === `## ${MEMORY_SECTION_HEADING}`)
+  if (start === -1) return null
+  let end = lines.length
+  for (let i = start + 1; i < masked.length; i += 1) {
+    if (/^#{1,2}\s/.test(masked[i])) {
+      end = i
+      break
+    }
+  }
+  return lines.slice(start, end).join(' ').replace(/\s+/g, ' ').trim()
+}
+
+/** True when a CLAUDE.md pulls AGENTS.md in whole, so AGENTS.md's section serves both. */
+export function importsAgentsMd(text) {
+  return /^\s*@(\.\/)?AGENTS\.md\s*$/m.test(text)
+}
+
 /** True when an unresolved reference points at a schema-defined optional location. */
 export function isSchemaOptionalTarget(fromRelPosix, ref) {
-  if (!fromRelPosix.startsWith(`${MEMORY_DIRNAME}/`) && fromRelPosix !== CLAUDE_MD) return false
-  const target = ref.replace(/^\.\//, '').replace(new RegExp(`^${MEMORY_DIRNAME}/`), '').replace(/\/$/, '')
-  return SCHEMA_OPTIONAL_TARGETS.has(target)
+  if (!fromRelPosix.startsWith(`${MEMORY_DIRNAME}/`) && !CLAUDE_MD_SCOPE.includes(fromRelPosix)) return false
+  const bare = ref.replace(/^\.\//, '')
+  const target = bare.replace(new RegExp(`^${MEMORY_DIRNAME}/`), '').replace(/\/$/, '')
+  // The governed contract files are system vocabulary too: memory explains
+  // that the pointer lives in `CLAUDE.md` and `AGENTS.md` whether or not this
+  // project has created both. Matched on the unstripped reference, so a
+  // genuinely broken `memory/AGENTS.md` link is still reported.
+  return SCHEMA_OPTIONAL_TARGETS.has(target) || CLAUDE_MD_SCOPE.includes(bare)
 }
 
 // Size thresholds. These are signals, not limits: nothing is rejected for
@@ -173,13 +218,31 @@ export function looksLikePath(token) {
   if (t === '') return false
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(t)) return false // URL
   if (/^(mailto|tel):/i.test(t)) return false
+  // A module or package specifier such as `node:fs/promises` or `npm:left-pad`:
+  // a scheme with no `//`. A one-letter scheme is a Windows drive, handled below.
+  if (/^[a-z][a-z0-9+.-]+:(?!\/\/)/i.test(t)) return false
+  // A code expression, e.g. `spawnSync(process.execPath, [...])`: a call
+  // (a word followed by a parenthesis), braces, quotes, assignments, or
+  // argument commas. Bare parentheses stay legal, since route groups such as
+  // `app/(auth)/login/page.tsx` are real paths.
+  if (/\w\(|[{}'=;]|,\s/.test(t)) return false
   if (t.startsWith('#') || t.startsWith('@')) return false // anchor or import sigil
   if (t.startsWith('/') || /^[A-Za-z]:[\\/]/.test(t)) return false // absolute: not a repo reference
   if (t.startsWith('~')) return false // home-relative: machine-local, not repo content
   if (/[<>|*?"]/.test(t)) return false // placeholder segments and globs, e.g. handoffs/<slug>.md
   if (t.includes('{{')) return false // unresolved placeholder, reported by its own check
   if (t.includes('--')) return false // a command line, e.g. `node --test tests/`
+  // With whitespace, a span is a path only when it starts with a path segment
+  // and ends with a file extension, e.g. `src/façade layer/cache adapter.mjs`.
+  // Commands (`node scripts/x.mjs`, `scripts/build.sh release`) and prose
+  // (`e.g. foo.md`) fail one test or the other. A path whose first segment has
+  // no slash (`My Docs/file.md`) is given up: no syntax separates it from a
+  // command, and a false alarm on every command is the worse failure.
+  if (/\s/.test(t) && !(t.split(/\s/)[0].includes('/') && /\.[A-Za-z0-9]{1,6}$/.test(t))) return false
   if (/^\.{1,2}$/.test(t)) return false
+  // A version string (`v1.1.0`, `18.20.4`, `2.0.0-rc.1`), not a file with a
+  // numeric extension.
+  if (/^v?\d+(\.\d+)+([-+][0-9A-Za-z.-]+)?$/.test(t)) return false
 
   const hasSlash = t.includes('/')
   const hasExtension = /\.[A-Za-z0-9]{1,6}$/.test(t)
@@ -195,12 +258,18 @@ export function extractReferences(text) {
   const prose = maskNonProse(text)
   const found = new Map()
 
-  const collect = (regex, kind) => {
+  // A code span followed by `(new)` names a file the work will create, e.g. a
+  // handoff step "add `test/cli.test.mjs` (new)". It is a plan, not a claim
+  // that the file exists, so it is not checked. Everything else still is.
+  const collect = (regex, kind, { plannedMarker = false } = {}) => {
     regex.lastIndex = 0
     let match
     while ((match = regex.exec(prose)) !== null) {
       const raw = match[1]
-      const cleaned = raw.trim().replace(/^\.\//, '').replace(/[#?].*$/, '')
+      if (plannedMarker && /^\s*\(new\)/.test(prose.slice(match.index + match[0].length))) continue
+      // Backslashes are normalized so `memory\\INDEX.md` resolves the same way
+      // on every platform instead of only on Windows.
+      const cleaned = raw.trim().replace(/\\/g, '/').replace(/^\.\//, '').replace(/[#?].*$/, '')
       if (!looksLikePath(cleaned)) continue
       if (!found.has(cleaned)) {
         found.set(cleaned, { ref: cleaned, kind, line: lineOf(prose, match.index) })
@@ -208,7 +277,7 @@ export function extractReferences(text) {
     }
   }
 
-  collect(CODE_SPAN, 'code-span')
+  collect(CODE_SPAN, 'code-span', { plannedMarker: true })
   collect(MARKDOWN_LINK, 'link')
 
   return [...found.values()]
@@ -569,6 +638,7 @@ export function discoverMemory(root) {
   const decisionsAbs = joinRel(root, `${MEMORY_DIRNAME}/${DECISIONS_DIRNAME}`)
   const decisionRecords = isDirectory(decisionsAbs)
     ? listFiles(decisionsAbs, { extension: '.md' })
+        .filter((abs) => containedBy(root, abs))
         .map((abs) => relPosix(root, abs))
         .filter((rel) => basename(rel).toUpperCase() !== 'INDEX.MD')
     : []
@@ -584,7 +654,7 @@ export function discoverMemory(root) {
   // under repository-looking names. Escapes are reported rather than dropped
   // silently -- memory that vanished from an audit with no explanation is the
   // silent degradation this project exists to refuse.
-  const discovered = exists ? listFiles(memoryAbs, { extension: '.md' }) : []
+  const discovered = exists ? listFiles(memoryAbs, { extension: '.md', includeFileLinks: true }) : []
   const markdownFiles = []
   const escapedFiles = []
   for (const abs of discovered) {
@@ -593,6 +663,12 @@ export function discoverMemory(root) {
     else escapedFiles.push(rel)
   }
   if (exists && !containedBy(root, memoryAbs)) escapedFiles.unshift(`${MEMORY_DIRNAME}/`)
+  // The walk above never follows a directory link, so a linked subdirectory's
+  // files are simply not listed. Name the link itself, or it vanishes silently.
+  for (const sub of [DECISIONS_DIRNAME, HANDOFFS_DIRNAME, 'archive']) {
+    const subAbs = joinRel(root, `${MEMORY_DIRNAME}/${sub}`)
+    if (isDirectory(subAbs) && !containedBy(root, subAbs)) escapedFiles.push(`${MEMORY_DIRNAME}/${sub}/`)
+  }
 
   return {
     exists,
@@ -602,7 +678,7 @@ export function discoverMemory(root) {
     core,
     optional,
     decisions: {
-      present: isDirectory(decisionsAbs),
+      present: isDirectory(decisionsAbs) && containedBy(root, decisionsAbs),
       dir: `${MEMORY_DIRNAME}/${DECISIONS_DIRNAME}`,
       indexPresent: isFile(joinRel(root, `${MEMORY_DIRNAME}/${DECISIONS_DIRNAME}/INDEX.md`)),
       records: decisionRecords,
@@ -621,6 +697,9 @@ export function discoverHandoffs(root) {
   const files = []
   if (isDirectory(dirAbs)) {
     for (const abs of listFiles(dirAbs, { extension: '.md' })) {
+      // A handoff outside the checkout is never offered as active: the handoff
+      // mode would otherwise write through the link.
+      if (!containedBy(root, abs)) continue
       const rel = relPosix(root, abs)
       const text = readTextSafe(abs) ?? ''
       files.push({
@@ -633,7 +712,7 @@ export function discoverHandoffs(root) {
   }
 
   const singleAbs = joinRel(root, singleRel)
-  if (isFile(singleAbs)) {
+  if (isFile(singleAbs) && containedBy(root, singleAbs)) {
     const text = readTextSafe(singleAbs) ?? ''
     files.push({
       path: singleRel,

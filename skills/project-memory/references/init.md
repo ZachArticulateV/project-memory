@@ -9,6 +9,16 @@ have spent months tuning. Slow down here.
 
 You have already run the state probe. Use its output rather than re-deriving.
 
+## 0. Confirm where memory will live
+
+The probe resolves the project root from the working directory: the nearest
+ancestor holding `memory/INDEX.md`, else the Git root. Its `root` field is
+where `init` writes. When that is not the directory the user is working in
+(a package inside a monorepo, say), tell them both paths and ask which they
+mean before writing. For memory in the current directory instead, rerun the
+probe with that directory as its positional argument and use that result
+throughout. Later sessions there then find the tree in that directory first.
+
 ## 1. Route
 
 | Repository class | Signal | Go to |
@@ -30,6 +40,12 @@ last meaningful update, and any validator findings — and stop.
 
 Offer `status` for a health report, `sync` if the probe shows memory trailing
 project changes, and `repair` if validation found structural problems.
+
+One integration step is safe to run on an initialized tree, because it adds a
+pointer and writes no memory: if the project has an `AGENTS.md` without the
+memory section, or a `CLAUDE.md` without it, offer to run Section 3e or 3f for
+that file alone. Trees created before `AGENTS.md` support get their Codex
+pointer this way.
 
 Reinitialize only if the user explicitly asks after being told a system already
 exists. Then treat it as Section 3, and preserve every human-authored file you
@@ -80,7 +96,8 @@ Ask the user when an `UNKNOWN` materially affects the project definition: what
 the project is for, who it serves, what counts as done, what must not change.
 
 Do not ask what the repository already answers. Do not ask a question per
-template field.
+template field. Ask in rounds, each question with your recommended answer, per
+`interview.md`.
 
 A good question names what you found and what you could not settle:
 
@@ -97,9 +114,13 @@ contains.
 and its evidence:
 
 ```text
-Origin: reconstructed
-Reconstructed: YYYY-MM-DD
+---
+origin: reconstructed
+reconstructed: YYYY-MM-DD
+---
+
 Evidence:
+
 - README
 - Git history
 - package configuration
@@ -124,18 +145,33 @@ it on a project that has none.
 Do not invent a risk register.
 
 `decisions/` starts with the architectural choices the code demonstrably made and
-that a future session would need to respect. Each is a real decision with real
-consequences, not a restatement of the stack. If you cannot say what the
-alternative was, it probably is not a decision record.
+that a future session would need to respect. Each passes the three-part test in
+`memory-schema.md`: hard to reverse, surprising without context, a real
+trade-off. It is not a restatement of the stack. If you cannot say what the
+alternative was, it is not a decision record.
 
-`INDEX.md`'s authority table lists only external systems this project actually
+`glossary.md` is written only when reconnaissance found project-specific terms
+that a newcomer would misread: a word the code uses in a sense of its own, two
+names for one concept, one name for two. Use the code's own names as the
+canonical terms unless the user settles otherwise. A project with no such terms
+gets no glossary.
+
+`INDEX.md` renders the glossary and acceptance-criteria lines only when those
+files were written. `init` writes no handoff, so the read-first handoff line
+says in prose that none exists yet (`handoff` creates one). Never render it as a
+code span naming `handoff.md`: that is a reference to a file that does not
+exist, and the validator reports it. Its
+authority table lists only external systems this project actually
 uses. Inventing a row sends the next session looking for a system that does not
 exist.
 
 ### 3e. Integrate CLAUDE.md
 
-If no `CLAUDE.md` exists, create one using the structural guide in Section 5 and
-insert the memory section from `templates/claude-md-section.md`.
+Claude Code reads both `CLAUDE.md` and `.claude/CLAUDE.md`. If either exists,
+integrate into the one that does (the root file when both do); create a root
+`CLAUDE.md` only when neither exists, using the structural guide in Section 5
+and the memory section from `templates/claude-md-section.md`. A second contract
+file beside an existing one splits the project's instructions in two.
 
 If one exists, read all of it before changing any of it, then classify every
 section into one of five buckets:
@@ -167,11 +203,35 @@ automatically better. The goal is high-value persistent context.
 Report substantial structural changes rather than presenting a rewritten file as
 a cleanup.
 
-### 3f. Install the writing rule
+### 3f. Integrate AGENTS.md
 
-Copy the plugin's `rules/memory-writing.md` into the project's
+Codex and most non-Claude agents read `AGENTS.md`, not `CLAUDE.md`. A project
+used from both needs the memory pointer in both, or one of its agents opens the
+repository blind.
+
+| Situation | Action |
+| --- | --- |
+| `AGENTS.md` exists | Read all of it, sort it into the same five buckets as `CLAUDE.md`, and insert the memory section |
+| `CLAUDE.md` imports `AGENTS.md` (`@AGENTS.md`) | Insert the memory section into `AGENTS.md` only; the import carries it into Claude Code |
+| No `AGENTS.md`, and the user works in Codex or another agent | Offer to create one holding the memory section. Do not create it unasked |
+| No `AGENTS.md`, Claude Code only | Nothing |
+
+The section is the same rendered `templates/claude-md-section.md` in both files.
+Keep them identical: a pointer that differs between agents sends each to a
+different read-first list.
+
+### 3g. Install the writing rule
+
+Copy the plugin's `rules/memory-writing.md` (at
+`${CLAUDE_SKILL_DIR}/../../rules/memory-writing.md`) into the project's
 `.claude/rules/memory-writing.md` so it travels with the project in version
 control.
+
+Claude Code treats `.claude/` as protected, so this write asks for approval,
+and a non-interactive run refuses it. If it is refused, do not retry: finish
+`init`, then give the user the one command that does it, with the source path
+resolved to a real absolute path, and say the rule is optional but keeps
+memory edits disciplined.
 
 If the file already exists and differs from the plugin's copy, do not overwrite
 it. Report the difference and let the user decide — a modified local rule is
@@ -191,8 +251,11 @@ constraints; required integrations; security and compliance considerations; and
 relevant external references.
 
 Ask the high-value questions — the ones whose answers change what gets built.
-Batch them; do not interrogate. Do not ask twenty questions because the list has
-twenty entries.
+Run them as rounds per `interview.md`: the problem and intended users settle
+first, because scope, stack, and constraints hang from them. Attach a
+recommended answer wherever the conversation or the directory gives you a basis
+for one. Batch the frontier; do not interrogate. Do not ask twenty questions
+because the list has twenty entries.
 
 Every field is accounted for in the resulting brief, either answered or recorded
 explicitly as unresolved. A field silently missing reads as "not applicable"; a
@@ -204,6 +267,9 @@ means a real `project-brief.md`, a `current-state.md` that says implementation
 has not started, a `next-actions.md` with the first real steps, and little else.
 Do not scaffold files against a future that may not arrive, and do not describe
 architecture that does not exist.
+
+Then run Sections 3e, 3f, and 3g: the contract pointer and the writing rule
+matter most on a new project, because every later session starts from them.
 
 ## 5. CLAUDE.md shape
 
@@ -249,7 +315,7 @@ node "${CLAUDE_SKILL_DIR}/../../scripts/memory-validate.mjs" --json
 
 Then tell the user, briefly: what was created, what was reconstructed rather than
 known, what you had to infer, what remains unresolved, and what you changed in
-`CLAUDE.md`.
+`CLAUDE.md` and `AGENTS.md`.
 
 Say plainly that structural validation is not semantic correctness — the tree is
 well-formed, which is not the same as accurate. `audit` is what checks accuracy.

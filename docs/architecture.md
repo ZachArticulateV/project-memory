@@ -8,15 +8,15 @@ model to do, it says so — and it matters, because instruction and enforcement 
 not the same guarantee.
 
 **Read this before reading anything else here.** Most of this plugin is Markdown
-that a model reads: the router, six mode playbooks, three policy references, the
-auditor prompt, the writing rule, and nine templates. Those shape behavior; they
+that a model reads: the router, seven mode playbooks, four shared references, the
+auditor prompt, the writing rule, and ten templates. Those shape behavior; they
 do not constrain it the way code does. Exactly three properties are mechanically
 enforced, and [`docs/limitations.md`](./limitations.md) names them: the bundled
 auditor cannot write because its tool grant contains no writer, the Codex tier
 cannot write because it runs under `-s read-only`, and validation warnings cannot
 block an edit because the hook always exits 0.
 
-Two sections below — [The six modes](#the-six-modes) and much of
+Two sections below — [The seven modes](#the-seven-modes) and much of
 [Safeguards](#safeguards) — describe playbook instructions. They are labelled at
 the top of each, and reading them as enforced behavior would be reading this
 document the way the plugin exists to stop people reading memory.
@@ -29,7 +29,7 @@ The spec this implements asks for nine deliverables. Here is where each one is.
 | --- | --- |
 | A. Architecture | [Components, and why each one exists](#components-and-why-each-one-exists) |
 | B. File Tree | [File tree](#file-tree) |
-| C. Skill Interface | [`README.md` → Use](../README.md#use), expanded in [The six modes](#the-six-modes) |
+| C. Skill Interface | [`README.md` → Use](../README.md#use), expanded in [The seven modes](#the-seven-modes) |
 | D. Claude Workflow | [What Claude reads, and when](#what-claude-reads-and-when) |
 | E. User Workflow | [`README.md` → What you actually need](../README.md#what-you-actually-need) |
 | F. Context Cost | [Context cost](#context-cost) |
@@ -67,13 +67,13 @@ Two structural commitments follow from that, and they explain most of the rest:
 
 ## Components, and why each one exists
 
-### One skill, six modes
+### One skill, seven modes
 
 `skills/project-memory/SKILL.md` is a router and nothing else. It resolves the
 mode from `$0`, runs the deterministic probe, loads exactly one playbook, and
 carries the standing rules that hold in every mode.
 
-It is deliberately small. Loading five playbooks to run one mode is the context
+It is deliberately small. Loading six playbooks to run one mode is the context
 inflation this system exists to prevent, so the architecture lives in the
 references and the router stays a table.
 
@@ -81,25 +81,25 @@ Its `allowed-tools` grants exactly three `Bash` patterns, each scoped to one
 bundled script:
 
 ```text
-Bash(${CLAUDE_SKILL_DIR}/../../scripts/project-state.mjs *)
-Bash(${CLAUDE_SKILL_DIR}/../../scripts/memory-validate.mjs *)
-Bash(${CLAUDE_SKILL_DIR}/../../scripts/auditor-bridge.mjs *)
+Bash(node "${CLAUDE_SKILL_DIR}/../../scripts/project-state.mjs" *)
+Bash(node "${CLAUDE_SKILL_DIR}/../../scripts/memory-validate.mjs" *)
+Bash(node "${CLAUDE_SKILL_DIR}/../../scripts/auditor-bridge.mjs" *)
 ```
 
 The skill stays model-invocable, so the only thing keeping ordinary coding work
 from triggering an audit is the negative half of its `description`. That clause
 is asserted by the test suite rather than assumed.
 
-### Six mode playbooks
+### Seven mode playbooks
 
 One file per mode under `skills/project-memory/references/`: `init.md`,
-`status.md`, `sync.md`, `handoff.md`, `audit.md`, `repair.md`.
+`status.md`, `sync.md`, `handoff.md`, `grill.md`, `audit.md`, `repair.md`.
 
 Each is loaded only by its own mode. Each ends with a "failure modes this mode
 must avoid" section, because the useful part of a playbook is usually the thing
 it forbids rather than the thing it prescribes.
 
-### Three shared policy references
+### Four shared references
 
 Loaded on demand by the modes that need them, so a mode pays only for the policy
 it actually uses:
@@ -109,18 +109,19 @@ it actually uses:
 | `memory-schema.md` | The canonical contract: what each artifact holds, how it changes, who may change it |
 | `evidence-policy.md` | The five-value finding classification, the promotion prohibition, the verification gate, the eight-value audit taxonomy, many-readers-one-writer |
 | `safety.md` | Secrets, untrusted-content normalization, external authority, the auto-memory boundary, branch isolation, the context budget |
+| `interview.md` | How the skill asks the user anything: design tree, frontier rounds, a recommended answer per question, facts looked up rather than asked, answers challenged against memory |
 
 `memory-schema.md` is the authority for artifact shape; the templates render it.
 When the two disagree, the schema is the contract and the template is the bug.
 
-### Nine templates
+### Ten templates
 
 `skills/project-memory/templates/` holds one file per canonical artifact plus
 the `CLAUDE.md` section. Modes render these rather than composing a document
 shape from scratch, because the validator checks generated files against the
 same source of truth.
 
-Three template defaults are load-bearing rather than cosmetic:
+Four template defaults are load-bearing rather than cosmetic:
 
 - `current-state.md` splits **Current reality** from **Intended direction**, so
   writing an intention as working behavior requires putting it in the wrong
@@ -129,6 +130,9 @@ Three template defaults are load-bearing rather than cosmetic:
   field, so promoting a suspicion means overwriting the word `Unknown`.
 - `acceptance-criteria.md` starts every criterion `unverified`, so code existing
   is never read as a feature working.
+- `glossary.md` gives every term an `_Avoid_` line, which is what the
+  `avoided-term` check reads, so a rejected synonym creeping back into memory
+  is a warning rather than a slow drift in vocabulary.
 
 Unresolved template values use `{{snake_case}}`, which the validator treats as an
 error — an unrendered token in shipped memory is a structural failure, not a
@@ -143,12 +147,23 @@ anywhere, so a branch name or a path can never become a command.
 
 **`scripts/project-state.mjs`** — the probe. Emits observed facts as JSON
 (`--json`) or human text, and **always exits 0** except on a usage error, which
-exits 2. Absent memory is a state, not a failure.
+exits 2. Absent memory is a state, not a failure; a directory argument that
+does not exist is a usage error, so a mistyped path in CI cannot pass.
+
+With no directory argument, both entry points (and both hooks) resolve the
+project root from the working directory: the nearest ancestor holding
+`memory/INDEX.md`, else the Git root, else the directory itself. A run from a
+subdirectory therefore sees the project's tree.
 
 It reports: whether `memory/` exists and which core files are present; Git
 branch, `HEAD`, worktree list, and the full working-tree change list including
 untracked files; which handoff is active and whether it belongs to this branch;
-`CLAUDE.md` size against a 200-line signal; and change-based staleness.
+each governed contract file (`contract`: presence, size against a 200-line
+signal, containment, whether it carries the memory section, `missingSection`
+per harness, `sectionsMatch`); and change-based staleness. Decision records,
+the archive, and the frozen brief are never rewritten, so when code they name has moved they are
+listed in `staleness.historicalBehind`, never in `staleFiles`, which is the
+only list the session-start hook reads.
 
 **Staleness is computed from change, never from elapsed time.** No clock is read
 anywhere in the codebase. For each committed memory file, the probe finds the
@@ -179,27 +194,30 @@ detection still stands when some other reference was uncheckable: stale is
 stale, and only *absence* of change needs every reference to have been readable.
 
 **`scripts/memory-validate.mjs`** — the structural validator. Exits 1 only when
-a finding has `error` severity; warnings and notes never gate. It declares nine
+a finding has `error` severity; warnings and notes never gate. It declares eleven
 checks:
 
 | Check | Severity | Fires on |
 | --- | --- | --- |
 | `unresolved-placeholder` | error | A `{{token}}` survived rendering |
-| `broken-reference` | error inside `memory/`, else warning | A referenced path resolves to nothing |
+| `broken-reference` | error when the target is memory (a `memory/` path, or a Markdown file named from a memory file), else warning | A referenced path resolves to nothing |
 | `duplicate-decision-id` | error | Two decision records claim one id (`2` and `002` collide) |
 | `malformed-frontmatter` | error | A decision record has no frontmatter, unparseable frontmatter, or is missing `id`, `status`, or `date` |
-| `oversized-file` | warning | `CLAUDE.md` over 200 lines, or a memory file over 400 lines or 40,000 bytes |
+| `oversized-file` | warning | A contract file (`CLAUDE.md`, `.claude/CLAUDE.md`, `AGENTS.md`) over 200 lines, or a memory file over 400 lines or 40,000 bytes |
 | `empty-section` | error | A required section is absent or empty |
 | `secret-pattern` | error | A value-shaped credential appears in memory |
 | `duplicate-task` | warning | `next-actions.md` lists the same action twice |
 | `escapes-repository` | error | A memory path or `CLAUDE.md` resolves outside the checkout through a link |
+| `avoided-term` | warning | A memory file uses, in prose, a word `glossary.md` lists under `_Avoid_`. Code spans, link targets, and URLs are masked first, and a hit wholly inside a correct canonical term is dropped; decision records and the archive are exempt; capped at 20 per file plus a summary |
+| `glossary-format` | warning | `glossary.md` has an `_Avoid_` line with no term above it, which the `avoided-term` check cannot enforce |
 
 Two further codes can appear that the declared list does not name:
 `memory-missing` (info, when there is no tree to validate) and `unreadable-file`
 (error).
 
-Both files the writing rule claims are scanned — the repository-root `CLAUDE.md`
-and `.claude/CLAUDE.md`. The hook's scope is the same list, so a file cannot be
+Every contract file the writing rule claims is scanned — the repository-root
+`CLAUDE.md`, `.claude/CLAUDE.md`, and `AGENTS.md`. The hook's scope is the same
+list, so a file cannot be
 accepted as in-scope for an edit and then go unvalidated.
 
 Secret findings are error severity even though a leaked credential is not a
@@ -318,8 +336,8 @@ not have.
 
 ### Two hooks
 
-`hooks/hooks.json` registers two events — three command entries, because
-`PostToolUse` needs two — both advisory, neither able to block. No `Stop` hook is
+`hooks/hooks.json` registers two events — five command entries, because
+`PostToolUse` needs four — both advisory, neither able to block. No `Stop` hook is
 registered.
 
 **`SessionStart` → `scripts/session-status-hook.mjs`.** Orientation, and only
@@ -347,16 +365,16 @@ regression that reaches Git on that path fails the suite instead of quietly
 slowing every session.
 
 **`PostToolUse` (matcher `Edit|Write`) → `scripts/post-tool-validate-hook.mjs`.**
-Structural warnings after a memory file or `CLAUDE.md` is edited. Registered as
-two entries with `if` conditions `Edit(memory/**/*.md)` and `Edit(CLAUDE.md)`,
-because the `if` field holds exactly one permission rule and has no combining
-syntax. `Edit()` rules cover every file-editing tool, so a `Write()` rule would
+Structural warnings after a memory file or a governed contract file is edited.
+Registered as four entries with `if` conditions `Edit(memory/**/*.md)`,
+`Edit(CLAUDE.md)`, `Edit(.claude/CLAUDE.md)`, and `Edit(AGENTS.md)`, because the
+`if` field holds exactly one permission rule and has no combining syntax. `Edit()` rules cover every file-editing tool, so a `Write()` rule would
 have been accepted, never consulted, and warned about at startup.
 
 The `if` condition is treated as an optimization, not the guarantee: permission
 rule anchoring depends on where the session started, so the script re-checks the
-edited path itself and exits silently for anything outside `memory/` or a
-`CLAUDE.md`.
+edited path itself and exits silently for anything outside `memory/` or the
+governed contract files.
 
 It surfaces every error-severity finding wherever it lives, plus warnings on the
 file just edited, capped at eight, clamped to 4,000 characters. **It always exits
@@ -370,8 +388,9 @@ asserting, current versus intended, causes versus hypotheses, no unobserved
 verification claims, no secrets, immutable decisions, frozen brief, snapshot
 state, per-workstream handoffs, one writer.
 
-Its frontmatter scopes it to `memory/**/*.md`, `CLAUDE.md`, and
-`.claude/CLAUDE.md`. That scoping is the mechanism: the rule is detailed because
+Its frontmatter scopes it to `memory/**/*.md`, `CLAUDE.md`,
+`.claude/CLAUDE.md`, and `AGENTS.md`. Codex does not load Claude Code rules, so
+under Codex the discipline reaches the agent only through the playbooks. That scoping is the mechanism: the rule is detailed because
 memory accuracy is detailed work, and it costs nothing during unrelated work
 because it does not load then. A bare `**/*.md` pattern would load it on any
 Markdown edit and defeat the point; the test suite guards against exactly that.
@@ -388,6 +407,11 @@ change.
 metadata for two ecosystems, so one publish serves both. A test guards the
 fields that must not drift between them.
 
+`skills/project-memory/agents/openai.yaml` carries the Codex skill-picker
+metadata. The skill is model-invoked in both harnesses, so it sets no
+`allow_implicit_invocation` policy; a test fails if the two harnesses ever
+disagree about who may invoke it.
+
 ## File tree
 
 ### The plugin — the reusable structure
@@ -401,13 +425,13 @@ project-memory/
 ├── CHANGELOG.md
 ├── LICENSE
 ├── agents/
-│   └── memory-auditor.md             tier-three auditor; tools: Read, Grep, Glob
+│   └── memory-auditor.md             second-tier auditor; tools: Read, Grep, Glob
 ├── hooks/
 │   └── hooks.json                    SessionStart + PostToolUse; no Stop hook
 ├── rules/
-│   └── memory-writing.md             loads only on memory/ or CLAUDE.md edits
+│   └── memory-writing.md             loads only on memory/ or contract-file edits
 ├── schemas/
-│   └── audit-findings.schema.json    the finding contract both CLI tiers answer
+│   └── audit-findings.schema.json    the finding contract every auditor tier answers
 ├── scripts/
 │   ├── project-state.mjs             deterministic probe
 │   ├── memory-validate.mjs           structural validator
@@ -420,17 +444,19 @@ project-memory/
 │       ├── memory-model.mjs          layout constants, parsing, secret patterns
 │       └── report.mjs                shared CLI contract and renderers
 ├── skills/project-memory/
-│   ├── SKILL.md                      the six-mode router
+│   ├── SKILL.md                      the seven-mode router
 │   ├── references/
 │   │   ├── init.md                   \
 │   │   ├── status.md                  |
 │   │   ├── sync.md                    |  one playbook per mode,
 │   │   ├── handoff.md                 |  loaded one at a time
+│   │   ├── grill.md                   |
 │   │   ├── audit.md                   |
 │   │   ├── repair.md                 /
 │   │   ├── memory-schema.md          \
-│   │   ├── evidence-policy.md         |  shared policy, loaded on demand
-│   │   └── safety.md                 /
+│   │   ├── evidence-policy.md         |  shared references,
+│   │   ├── safety.md                  |  loaded on demand
+│   │   └── interview.md              /
 │   └── templates/
 │       ├── index.md                  → memory/INDEX.md
 │       ├── project-brief.md          → memory/project-brief.md
@@ -439,6 +465,7 @@ project-memory/
 │       ├── next-actions.md           → memory/next-actions.md
 │       ├── bugs-and-risks.md         → memory/bugs-and-risks.md
 │       ├── acceptance-criteria.md    → memory/acceptance-criteria.md
+│       ├── glossary.md               → memory/glossary.md
 │       ├── decision-record.md        → one file under memory/decisions/
 │       └── claude-md-section.md      → the section inserted into CLAUDE.md
 ├── tests/
@@ -447,8 +474,11 @@ project-memory/
 │   │                                 live harness gated off by default
 │   └── fixtures/                     builders; every fixture lands in a temp dir
 └── docs/
+    ├── quickstart.md                 the beginner's first run
+    ├── advanced.md                   worktrees, Codex, CI, teams
     ├── architecture.md               this file
     ├── limitations.md                what the system does not guarantee
+    ├── benchmark/                    patterns adopted from mattpocock/skills
     ├── plans/                        the implementation plan
     └── spec/                         the originating specification
 ```
@@ -462,6 +492,8 @@ under them loads at runtime.
 your-project/
 ├── CLAUDE.md                         gains one "Project Memory" section
 │                                     (created, if the project had none)
+├── AGENTS.md                         the same section, when the project has
+│                                     one or asks for one (Codex reads this)
 ├── .claude/
 │   └── rules/
 │       └── memory-writing.md         copied by init; loads only on memory edits
@@ -474,6 +506,7 @@ your-project/
     ├── next-actions.md               Now / Next / Blocked
     ├── bugs-and-risks.md             problems, with causes split from hypotheses
     ├── acceptance-criteria.md        created only when features need verifying
+    ├── glossary.md                   created only when the project has its own terms
     ├── decisions/
     │   ├── INDEX.md
     │   └── NNN-slug.md               one immutable record per decision
@@ -483,14 +516,16 @@ your-project/
 Nothing else in a target repository is modified. Everything is plain Markdown in
 version control: it appears in code review, and it is recoverable through normal
 Git history. Removing the system means deleting `memory/`, deleting
-`.claude/rules/memory-writing.md`, and dropping one section from `CLAUDE.md` —
-three deletions, no migration, no residue.
+`.claude/rules/memory-writing.md`, and dropping the memory section from
+`CLAUDE.md` (and `AGENTS.md`, if it has one) — a handful of deletions, no
+migration, no residue.
 
-`acceptance-criteria.md` and `archive/` are conditional. A project with no
-verifiable feature set does not get an empty acceptance file, and the archive
-exists when something has been retired into it.
+`acceptance-criteria.md`, `glossary.md`, and `archive/` are conditional. A
+project with no verifiable feature set does not get an empty acceptance file, a
+project with no vocabulary of its own gets no glossary, and the archive exists
+when something has been retired into it.
 
-## The six modes
+## The seven modes
 
 The user-facing table is in [`README.md`](../README.md#use).
 
@@ -546,6 +581,16 @@ existing file rather than copying it, then updates `INDEX.md`. Before writing, t
 mode reads whatever is already at the target and checks its `Branch:` line —
 because two branch names can slug to one filename, and writing anyway destroys
 another workstream's state with no error and nothing in the diff to notice.
+
+**`grill`** stress-tests a plan before it is built. It runs the interview
+discipline in `interview.md`: the plan is a design tree, questions are asked a
+frontier at a time with a recommended answer each, facts are looked up rather
+than asked, and every answer is challenged against accepted decisions, the
+brief's out-of-scope boundaries, current reality, and open risks. Nothing is
+written until the frontier is empty and the user confirms. Each settled item
+then goes to one home: a decision record only when the decision is hard to
+reverse, surprising, and a real trade-off; otherwise the action it produces.
+The brief stays frozen, and the plan is never written as current reality.
 
 **`audit`** hands the question to an evaluator outside this context. The
 coordinator assembles the evidence the auditor cannot gather — branch, `HEAD`,
@@ -625,8 +670,8 @@ nothing in the audit path writes.
 | `CLAUDE.md` | Whatever the project's contract file already costs, plus one short section |
 | `SessionStart` hook output | Zero when memory is healthy; a few lines otherwise, hard-capped at 3,000 characters |
 
-That is the entire automatic cost. The plugin's own Markdown — the router, six
-playbooks, three policy references, nine templates, the auditor prompt, the
+That is the entire automatic cost. The plugin's own Markdown — the router, seven
+playbooks, four shared references, ten templates, the auditor prompt, the
 writing rule — loads none of itself at session start.
 
 **Loads on demand:**
@@ -638,7 +683,7 @@ writing rule — loads none of itself at session start.
 | A policy reference | When the running playbook calls for it |
 | `rules/memory-writing.md` | Only while editing `memory/**/*.md` or a `CLAUDE.md` |
 | The five-file startup set | Before substantive project work, per `INDEX.md` |
-| `bugs-and-risks.md`, `acceptance-criteria.md`, a decision record | When the task makes them relevant |
+| `bugs-and-risks.md`, `acceptance-criteria.md`, `glossary.md`, a decision record | When the task makes them relevant |
 | `archive/` | Effectively never |
 
 Two mechanisms keep this true rather than aspirational: `CLAUDE.md` references
@@ -692,7 +737,7 @@ Four layers, in increasing order of how much they can actually enforce:
 
 The policy is name-not-value: `Requires SUPABASE_SERVICE_ROLE_KEY in the server
 environment`, never the key. The mechanical backstop is the validator's
-`secret-pattern` check — eight patterns, error severity, so CI fails rather than
+`secret-pattern` check — every pattern at error severity, so CI fails rather than
 warns. The excerpt in a finding is a four-character prefix of the match plus its
 length, never the value, so a detection cannot re-leak the credential into logs.
 
@@ -828,6 +873,21 @@ section is added with literal paths. When `CLAUDE.md` is oversized, the audit
 points at `/doctor`, which already proposes trims against the live file with the
 user in the loop, rather than producing a competing set of cuts.
 
+**Codex.** A Codex session in the same repository reads `AGENTS.md`, so `init`
+writes the same memory section there when the project has one (or when the
+user asks for one), and the validator, the post-edit hook, and the writing rule
+all govern `AGENTS.md` alongside the two `CLAUDE.md` forms. Codex substitutes
+none of the skill's variables, so `SKILL.md` carries a short "Outside Claude
+Code" section telling the agent how to resolve `$0` and `${CLAUDE_SKILL_DIR}`
+itself. That is instruction, not substitution. The Codex manifest sets `"hooks": {}`,
+because Codex otherwise loads `hooks/hooks.json` by default and those hooks do
+not work there (the post-edit hook cannot see which file `apply_patch` touched,
+and `${CLAUDE_PLUGIN_ROOT}` is not expanded under `cmd.exe`). So the
+session-start signal and the post-edit validation are absent under Codex; `status` and each mode's closing validation stand in for them.
+`handoff` can target Codex: it prints a one-line `codex "..."` launch command
+whose prompt names `memory/INDEX.md` and the handoff path explicitly, because
+the Codex session will not find them through `CLAUDE.md`.
+
 **Platform.** Every executable the plugin ships is Node — no shell script, no
 Python, no compiled binary. The two hook commands are `node "<path>"` strings the
 harness runs, and the skill's three `Bash` grants are Node invocations, so a shell
@@ -857,7 +917,8 @@ failure this plugin exists to prevent.
 
 - **The hook `if` field holds one permission rule.** The plan assumed a single
   condition covering both memory files and `CLAUDE.md`. There is no combining
-  syntax, so the `PostToolUse` entry ships as two handlers. Separately, `Edit()`
+  syntax, so the `PostToolUse` entry ships as one handler per governed
+  path (four today). Separately, `Edit()`
   rules cover all file-editing tools, so a `Write()` rule would have been
   accepted, never consulted, and warned about at startup.
 - **The `if` condition is an optimization, not the guarantee.** Permission-rule

@@ -10,7 +10,9 @@ capabilities. Everything below is a known boundary, not a defect list.
 
 `memory-validate.mjs` checks shape: unresolved placeholders, broken references,
 duplicate decision IDs, malformed frontmatter, oversized files, empty required
-sections, credential-shaped strings, duplicate tasks.
+sections, credential-shaped strings, duplicate tasks, paths that escape the
+repository, and words the glossary rejected. The `avoided-term` check catches
+only the aliases a glossary lists; a synonym nobody listed passes.
 
 A memory tree can pass every one of those checks and be entirely wrong about the
 project. Validation says the documents are well-formed. It says nothing about
@@ -58,9 +60,9 @@ CLI, and it is the price of the removal described below.
 
 ## Model behavior is instructed, not enforced
 
-Most of this plugin is Markdown read by a model: the router, six mode playbooks,
-three shared policy references, the auditor's system prompt, the writing rule,
-and nine templates. All of it shapes behavior. None of it constrains behavior the
+Most of this plugin is Markdown read by a model: the router, seven mode playbooks,
+four shared references, the auditor's system prompt, the writing rule,
+and ten templates. All of it shapes behavior. None of it constrains behavior the
 way code does.
 
 Three things *are* mechanically enforced, and they are the ones where a promise
@@ -234,6 +236,11 @@ credential that reached memory; it does not make putting one there safe.
 - `codex` is optional. Without it, `audit` falls back to the bundled subagent.
   A recent Codex is needed for the tier to run at all: the invocation passes
   `--ignore-rules`, and a CLI that predates that flag rejects it and demotes.
+- Under Codex, the hooks do not run (the Codex manifest opts out; see decision
+  007 in this repository's `memory/decisions/`), the path-scoped writing rule does not
+  load (Codex reads no `.claude/rules/`), and `${CLAUDE_SKILL_DIR}` and `$0` are
+  resolved by the agent following an instruction in `SKILL.md`, not substituted
+  by the harness. Staleness is surfaced only when `status` is run.
 - The plugin depends on current Claude Code behavior for skills, hooks,
   path-scoped rules, and subagents. Those surfaces were verified against live
   documentation on 2026-08-08. A future release could change them; the hook

@@ -16,9 +16,18 @@ the limit is what it is — the one piece of context in the tree that no amount 
 reading the repository would recover. That paragraph does not come back. Nobody
 notices it left, because what replaced it reads fine.
 
-You have already run the state probe and hold a finding list from `audit`. If you
-do not have one, run `audit` first. Repairing from your own impression of what is
-stale is the writer checking its own work.
+You have already run the state probe and hold a finding list. It comes from one
+of two places, and each covers a different kind of problem:
+
+| Source | Covers | Provenance |
+| --- | --- | --- |
+| `audit` | Claims about the project: wrong, stale, unsupported | The auditor tier that ran |
+| `memory-validate.mjs` | Structure: placeholders, broken references, empty sections, duplicate ids or tasks, `avoided-term` wording | Deterministic; no tier |
+
+A validator finding is a fact about the file, so it needs no audit before it is
+fixed. A claim about the project does: if you want to correct one and hold no
+audit finding for it, run `audit` first. Repairing claims from your own
+impression of what is stale is the writer checking its own work.
 
 ## 1. Decide what to apply first
 
@@ -97,7 +106,9 @@ is frequently not the artifact that should carry the true one.
 | Work still to do | `next-actions.md` |
 | Where memory lives and who is authoritative | `INDEX.md` |
 | Continuation state for this workstream | the active handoff |
-| A durable project invariant | `CLAUDE.md` |
+| A durable project invariant | `CLAUDE.md`, mirrored into `AGENTS.md` when the change is to the memory section |
+| What a project term means, or which word to avoid | `glossary.md` |
+| An `avoided-term` finding | The flagged file: reword to the glossary term. The glossary itself changes only if the term is wrong |
 
 A `MISPLACED` finding is resolved by moving the claim, not by copying it. Leaving
 the original in place converts one finding into a `DUPLICATED` one.

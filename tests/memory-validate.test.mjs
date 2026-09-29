@@ -1,10 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
-import { CHECKS, validateMemory } from '../scripts/memory-validate.mjs'
+import { CHECKS, findAvoidedTerms, parseGlossary, validateMemory } from '../scripts/memory-validate.mjs'
 import { STRUCTURAL_DISCLAIMER } from '../scripts/lib/report.mjs'
 import { findSecrets, parseFrontmatter } from '../scripts/lib/memory-model.mjs'
 import { cleanupAfter, claudeMd, completeMemoryTree, makeFixture, writeTree } from './fixtures/build.mjs'
@@ -502,4 +502,301 @@ test('the CLI exits non-zero on an error finding and zero when only warnings exi
   assert.doesNotThrow(() =>
     execFileSync(process.execPath, [VALIDATOR, '--cwd', warnOnly], { encoding: 'utf8', stdio: 'pipe' })
   )
+})
+
+// --- glossary ---------------------------------------------------------------
+
+const GLOSSARY = [
+  '# Glossary',
+  '',
+  '## Language',
+  '',
+  '**Workstream**:',
+  'One branch or worktree of active work.',
+  '_Avoid_: lane, track',
+  '',
+  '**Handoff**:',
+  'A continuation pointer for the next session.',
+  '_Avoid_: session log',
+  '',
+].join('\n')
+
+test('a memory file using an avoided word draws a warning naming the canonical term', () => {
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/glossary.md': GLOSSARY,
+    'memory/next-actions.md': tree['memory/next-actions.md'] + '\nThe auth lane stays paused. Do not keep a session log.\n',
+  })
+  cleanupAfter(test, root)
+
+  const result = validateMemory(root)
+  const found = findingsOf(result, 'avoided-term')
+  assert.deepEqual(
+    found.map((f) => [f.artifact, f.alias, f.term, f.severity]),
+    [
+      ['memory/next-actions.md', 'lane', 'Workstream', 'warning'],
+      ['memory/next-actions.md', 'session log', 'Handoff', 'warning'],
+    ]
+  )
+  // A warning never gates.
+  assert.equal(result.ok, true)
+})
+
+test('avoided words inside code, inside longer words, or in history are not flagged', () => {
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/glossary.md': GLOSSARY,
+    // `lane` in a code span quotes an identifier; "tracking" is not "track".
+    'memory/next-actions.md': tree['memory/next-actions.md'] + '\nRename `lane` in the router. Tracking is fine.\n\n```\nlane = 1\n```\n',
+    'memory/archive/old.md': '# Old\n\nThe lane model was retired.\n',
+  })
+  cleanupAfter(test, root)
+
+  assert.deepEqual(findingsOf(validateMemory(root), 'avoided-term'), [])
+})
+
+test('with no glossary the avoided-term check is silent', () => {
+  const root = fixtureWith()
+  cleanupAfter(test, root)
+  assert.deepEqual(findingsOf(validateMemory(root), 'avoided-term'), [])
+})
+
+test('an INDEX reference to a glossary that does not exist yet is not broken', () => {
+  // The glossary is created lazily, so pointing at it before its first term is
+  // the schema describing itself, not a missing artifact.
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/INDEX.md': tree['memory/INDEX.md'] + '\nRead `glossary.md` when a term is unclear.\n',
+  })
+  cleanupAfter(test, root)
+  assert.deepEqual(findingsOf(validateMemory(root), 'broken-reference'), [])
+})
+
+test('a command in a code span is not a path reference, a path with spaces still is', () => {
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/next-actions.md':
+      tree['memory/next-actions.md'] +
+      '\nRun `node scripts/memory-validate.mjs` after editing.\nSee `docs/missing spec.md` for the spec.\n',
+  })
+  cleanupAfter(test, root)
+
+  const refs = findingsOf(validateMemory(root), 'broken-reference').map((f) => f.message)
+  assert.equal(refs.length, 1, JSON.stringify(refs))
+  assert.match(refs[0], /docs\/missing spec\.md/)
+})
+
+test('naming a governed contract file that does not exist is vocabulary, not a broken reference', () => {
+  // Memory explains where the pointer lives (CLAUDE.md, .claude/CLAUDE.md,
+  // AGENTS.md) whether or not this project has created each one.
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/next-actions.md':
+      tree['memory/next-actions.md'] + '\nMirror the section into `AGENTS.md` and `.claude/CLAUDE.md`.\n',
+  })
+  cleanupAfter(test, root)
+
+  assert.deepEqual(findingsOf(validateMemory(root), 'broken-reference'), [])
+})
+
+// --- avoided-term edge cases (from the coherence audit) -----------------------
+
+
+const hits = (glossary, text) => findAvoidedTerms(text, parseGlossary(glossary)).map((h) => [h.match, h.term])
+
+test('an alias that is a word of a canonical term never flags the term itself', () => {
+  const g = '**Customer account**:\nA billed account.\n_Avoid_: account, customer\n\n**Card holder**:\nA person.\n\n**Account holder**:\nOwner.\n_Avoid_: holder\n'
+  assert.deepEqual(hits(g, 'Every Customer account is billed. A Card holder pays.\n'), [])
+  assert.deepEqual(hits(g, 'The account is billed by the holder.\n'), [
+    ['account', 'Customer account'],
+    ['holder', 'Account holder'],
+  ])
+})
+
+test('term lines with an inline definition or a colon inside the bold are parsed', () => {
+  const g = '**Order**: a purchase request.\n_Avoid_: purchase\n\n**Workstream:**\nA branch of work.\n_Avoid_: lane\n'
+  const { terms, aliases } = parseGlossary(g)
+  assert.deepEqual(terms, ['Order', 'Workstream'])
+  assert.equal(aliases.get('purchase').term, 'Order')
+  assert.equal(aliases.get('lane').term, 'Workstream')
+})
+
+test('an _Avoid_ line after an unparsed bold line is not credited to the previous term', () => {
+  const g = '**Job**:\nA unit of work.\n\n**Order** is a purchase.\n_Avoid_: purchase\n'
+  assert.equal(parseGlossary(g).aliases.has('purchase'), false)
+})
+
+test('aliases split on semicolons, drop markup and trailing periods, and match across a line break', () => {
+  const g = '**Workstream**:\nA branch.\n_Avoid_: *lane*; `track`, work stream.\n'
+  assert.deepEqual([...parseGlossary(g).aliases.keys()].sort(), ['lane', 'track', 'work stream'])
+  assert.deepEqual(hits(g, 'One work\nstream, one lane.\n'), [
+    ['work stream', 'Workstream'],
+    ['lane', 'Workstream'],
+  ])
+})
+
+test('link targets and URLs are not prose', () => {
+  const g = '**Customer**:\nA buyer.\n_Avoid_: client\n'
+  assert.deepEqual(hits(g, 'See [notes](../docs/client.md) and https://client.example.com today.\n'), [])
+  // Link TEXT is prose and still checked.
+  assert.deepEqual(hits(g, 'See [the client notes](../docs/notes.md).\n'), [['client', 'Customer']])
+})
+
+test('the longer of two overlapping aliases wins', () => {
+  const g = '**Handoff**:\nA pointer.\n_Avoid_: log\n\n**Handoff**:\nx\n_Avoid_: session log\n'
+  assert.deepEqual(hits(g, 'Keep a session log.\n'), [['session log', 'Handoff']])
+})
+
+test('a hyphenated or longer word containing an alias is not flagged', () => {
+  const g = '**Workstream**:\nA branch.\n_Avoid_: lane\n'
+  assert.deepEqual(hits(g, 'The fast-lane and lanes and lane-change stay.\n'), [])
+})
+
+test('decision records are exempt from avoided-term findings', () => {
+  const tree = completeMemoryTree()
+  const decision = Object.keys(tree).find((k) => /memory\/decisions\/\d+/.test(k))
+  const root = fixtureWith({
+    'memory/glossary.md': GLOSSARY,
+    [decision]: tree[decision] + '\nThe auth lane was chosen.\n',
+  })
+  cleanupAfter(test, root)
+  assert.deepEqual(findingsOf(validateMemory(root), 'avoided-term'), [])
+})
+
+test('findings per file are capped with one summary, and a large file stays fast', () => {
+  const many = Array.from({ length: 20000 }, (_, i) => `Line ${i} mentions the lane.`).join('\n')
+  const root = fixtureWith({ 'memory/glossary.md': GLOSSARY, 'memory/archive/x.md': '# x\n', 'memory/notes.md': `# Notes\n\n${many}\n` })
+  cleanupAfter(test, root)
+  const started = Date.now()
+  const found = findingsOf(validateMemory(root), 'avoided-term').filter((f) => f.artifact === 'memory/notes.md')
+  assert.ok(Date.now() - started < 4000, `took ${Date.now() - started}ms`)
+  assert.equal(found.length, 21)
+  assert.equal(found[20].more, 19980)
+  assert.equal(found[0].line, 3)
+  assert.equal(found[19].line, 22)
+})
+
+test('a tree with no decision records yet does not warn about the decisions/ it names', () => {
+  // Found in a live init: a small project had no decision passing the
+  // three-part test, and INDEX.md, next-actions.md, and the brief (all
+  // rendered from templates) still named decisions/, producing four warnings
+  // on day one.
+  const tree = completeMemoryTree()
+  for (const key of Object.keys(tree)) if (key.startsWith('memory/decisions/')) delete tree[key]
+  // Drop the fixture's pointer at a specific record; naming a record that does
+  // not exist is still a real broken reference.
+  for (const key of Object.keys(tree)) tree[key] = tree[key].replaceAll('decisions/001-in-memory-cache.md', 'decisions/')
+  tree['memory/next-actions.md'] += '\nCompleted items move to `decisions/` or `archive/`.\n'
+  const root = makeFixture(tree)
+  cleanupAfter(test, root)
+  assert.deepEqual(findingsOf(validateMemory(root), 'broken-reference'), [])
+})
+
+test('module specifiers, code expressions, and files marked (new) are not path references', () => {
+  // All three came from a live handoff on a sample project.
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/next-actions.md':
+      tree['memory/next-actions.md'] +
+      [
+        '',
+        'Import `node:assert/strict` and `npm:left-pad`.',
+        "Spawn with `spawnSync(process.execPath, ['src/cli.mjs'], { env })`.",
+        'Add `test/cli.test.mjs` (new) beside the store test.',
+        'Fix the typo in `test/missing.test.mjs` first.',
+        '',
+      ].join('\n'),
+  })
+  cleanupAfter(test, root)
+
+  const refs = findingsOf(validateMemory(root), 'broken-reference').map((f) => f.reference)
+  assert.deepEqual(refs, ['test/missing.test.mjs'])
+})
+
+// --- re-audit: glossary format and path rules ---------------------------------
+
+test('a wrapped _Avoid_ list, bullet terms, and quoted aliases all parse', () => {
+  const g = '- **Memory tree**: the committed directory.\n_Avoid_: notes folder,\n  knowledge base; "wiki"\n\n**Other**:\nX.\n'
+  const { terms, aliases, unattributed } = parseGlossary(g)
+  assert.deepEqual(terms, ['Memory tree', 'Other'])
+  assert.deepEqual([...aliases.keys()].sort(), ['knowledge base', 'notes folder', 'wiki'])
+  assert.deepEqual(unattributed, [])
+})
+
+test('an alias that contains a canonical term still matches; one inside a term does not', () => {
+  const g = '**Account**:\nA ledger.\n\n**Customer account**:\nA billed ledger.\n_Avoid_: client account, customer\n'
+  assert.deepEqual(hits(g, 'We bill the client account monthly.\n'), [['client account', 'Customer account']])
+  assert.deepEqual(hits(g, 'Every Customer account is billed.\n'), [])
+})
+
+test('word edges are Unicode-aware', () => {
+  const g = '**Restaurant**:\nA place.\n_Avoid_: bistro\n'
+  assert.deepEqual(hits(g, 'The bistroé menu.\n'), [])
+  assert.deepEqual(hits(g, 'The bistro menu.\n'), [['bistro', 'Restaurant']])
+})
+
+test('an _Avoid_ line with no term is reported, not silently ignored', () => {
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/glossary.md': '# Glossary\n\n## Language\n\n_Avoid_: lane\n\n**Workstream**:\nA branch.\n',
+    'memory/next-actions.md': tree['memory/next-actions.md'],
+  })
+  cleanupAfter(test, root)
+  const found = findingsOf(validateMemory(root), 'glossary-format')
+  assert.equal(found.length, 1)
+  assert.equal(found[0].line, 5)
+  assert.equal(found[0].severity, 'warning')
+})
+
+test('commands and prose with spaces are not paths; a spaced path under a folder still is', () => {
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/next-actions.md':
+      tree['memory/next-actions.md'] +
+      '\nRun `scripts/build.sh release`, `./scripts/x.sh arg`, and `python3.12 scripts/x.py`, e.g. `e.g. foo.md`.\nSee `docs/missing dir/spec.md`.\nAlso `memory\\\\INDEX.md`.\n',
+  })
+  cleanupAfter(test, root)
+  const refs = findingsOf(validateMemory(root), 'broken-reference').map((f) => f.reference)
+  assert.deepEqual(refs, ['docs/missing dir/spec.md'])
+})
+
+test('version strings are not path references', () => {
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/next-actions.md': tree['memory/next-actions.md'] + '\nTag `v1.1.0`; needs Node `18.20.4`; try `2.0.0-rc.1`.\n',
+  })
+  cleanupAfter(test, root)
+  assert.deepEqual(findingsOf(validateMemory(root), 'broken-reference'), [])
+})
+
+test('an empty glossary term cannot hang the validator', () => {
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/glossary.md': '# Glossary\n\n** **: nothing\n_Avoid_: x\n\n**Workstream**:\nA branch.\n_Avoid_: lane\n',
+    'memory/next-actions.md': tree['memory/next-actions.md'] + '\nThe lane.\n',
+  })
+  cleanupAfter(test, root)
+  const run = spawnSync(process.execPath, [VALIDATOR, '--json', root], { encoding: 'utf8', timeout: 5000 })
+  assert.notEqual(run.signal, 'SIGTERM', 'the validator did not finish within 5s')
+  const findings = JSON.parse(run.stdout).findings
+  assert.ok(findings.some((f) => f.check === 'avoided-term' && f.alias === 'lane'))
+  // The orphaned _Avoid_ under the empty term is reported, not enforced.
+  assert.ok(findings.some((f) => f.check === 'glossary-format'))
+})
+
+test('route-group paths with parentheses are still checked', () => {
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/next-actions.md': tree['memory/next-actions.md'] + '\nSee `app/(auth)/signup/page.tsx`.\n',
+  })
+  cleanupAfter(test, root)
+  const refs = findingsOf(validateMemory(root), 'broken-reference').map((f) => f.reference)
+  assert.deepEqual(refs, ['app/(auth)/signup/page.tsx'])
+})
+
+test('bulleted _Avoid_ lines parse, and a definition after the list is not read as aliases', () => {
+  const g = '- **Invoice**: a bill.\n- _Avoid_: bill, statement\nThe document sent after an order ships, per customer.\n'
+  const { aliases, unattributed } = parseGlossary(g)
+  assert.deepEqual([...aliases.keys()].sort(), ['bill', 'statement'])
+  assert.deepEqual(unattributed, [])
 })

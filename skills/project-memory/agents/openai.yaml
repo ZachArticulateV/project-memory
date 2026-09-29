@@ -1,0 +1,3 @@
+interface:
+  display_name: "Project Memory"
+  short_description: "Init, status, sync, handoff, grill, audit, repair memory/"

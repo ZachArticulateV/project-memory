@@ -4,7 +4,9 @@
 //
 // Emits observed facts only: which memory files exist, what Git says about the
 // branch, HEAD, worktrees and the working tree, which handoff is active and
-// whether it belongs to the current branch, how large CLAUDE.md is, and which
+// whether it belongs to the current branch, how large CLAUDE.md is, which
+// contract files (CLAUDE.md, .claude/CLAUDE.md, AGENTS.md) carry the memory
+// section and whether those copies agree, and which
 // memory files are behind changes to the paths they reference.
 //
 // STALENESS IS CHANGE-BASED, NEVER TIME-BASED. Nothing in this file reads a
@@ -16,13 +18,19 @@
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 
-import { fileFacts, isDirectory, joinRel, readTextSafe } from './lib/fs-utils.mjs'
+import { containedBy, fileFacts, isDirectory, joinRel, readTextContained, readTextSafe } from './lib/fs-utils.mjs'
 import {
+  AGENTS_MD,
   CLAUDE_MD,
   CLAUDE_MD_LINE_SIGNAL,
+  CLAUDE_MD_SCOPE,
+  DECISIONS_DIRNAME,
+  GLOSSARY_FILENAME,
   MEMORY_DIRNAME,
   discoverMemory,
+  extractMemorySection,
   extractReferences,
+  importsAgentsMd,
   resolveActiveHandoff,
   resolveReference,
 } from './lib/memory-model.mjs'
@@ -56,6 +64,7 @@ export function collectProjectState(root, options = {}) {
     large: claudeFacts.present && claudeFacts.lines > CLAUDE_MD_LINE_SIGNAL,
   }
 
+  const contract = collectContract(absRoot)
   const staleness = computeStaleness(absRoot, git, memory, options)
 
   const state = {
@@ -65,12 +74,63 @@ export function collectProjectState(root, options = {}) {
     git,
     handoff,
     claudeMd,
+    contract,
     staleness,
     signals: [],
   }
 
   state.signals = deriveSignals(state)
   return state
+}
+
+/**
+ * Which governed contract files exist, which carry the memory section, and
+ * whether every copy of that section says the same thing.
+ *
+ * A CLAUDE.md that imports AGENTS.md with `@AGENTS.md` carries AGENTS.md's
+ * section by reference, so it is not reported as missing one.
+ */
+export function collectContract(absRoot) {
+  const files = CLAUDE_MD_SCOPE.map((rel) => {
+    const abs = joinRel(absRoot, rel)
+    const facts = fileFacts(abs)
+    // A contract file that links outside the checkout is reported as escaping
+    // and never read, matching what the validator and the bridge do with it.
+    const escapes = facts.present && !containedBy(absRoot, abs)
+    const text = facts.present && !escapes ? readTextContained(absRoot, abs) : null
+    const section = text === null ? null : extractMemorySection(text)
+    return {
+      path: rel,
+      present: facts.present,
+      escapes,
+      lines: facts.present ? facts.lines : 0,
+      large: facts.present && facts.lines > CLAUDE_MD_LINE_SIGNAL,
+      hasMemorySection: section !== null,
+      importsAgentsMd: text !== null && rel !== AGENTS_MD && importsAgentsMd(text),
+      section,
+    }
+  })
+  const sections = files.filter((f) => f.section !== null).map((f) => f.section)
+  const sectionsMatch = sections.length < 2 ? null : sections.every((s) => s === sections[0])
+
+  // Which harness would open this project without the pointer. Claude Code
+  // reads both CLAUDE.md forms, so one carrying the section (or importing an
+  // AGENTS.md that does) covers it; Codex reads only AGENTS.md.
+  const agents = files.find((f) => f.path === AGENTS_MD)
+  const agentsCovered = agents.present && agents.section !== null
+  const claudeFiles = files.filter((f) => f.path !== AGENTS_MD && f.present && !f.escapes)
+  const claudeCovered = claudeFiles.some((f) => f.section !== null || (f.importsAgentsMd && agentsCovered))
+  const missing = []
+  if (claudeFiles.length > 0 && !claudeCovered) missing.push(...claudeFiles.map((f) => f.path))
+  // No contract file at all is the worst case: no agent is pointed at memory.
+  if (files.every((f) => !f.present)) missing.push(CLAUDE_MD)
+  if (agents.present && !agents.escapes && !agentsCovered) missing.push(AGENTS_MD)
+
+  return {
+    files: files.map(({ section, ...rest }) => rest),
+    sectionsMatch,
+    missingSection: missing,
+  }
 }
 
 /**
@@ -86,7 +146,25 @@ export function collectProjectState(root, options = {}) {
  * evidence that another went stale would fire on every sync.
  */
 function computeStaleness(root, git, memory, options) {
-  const allMemoryFiles = memory.markdownFiles
+  // Never rewritten, so never syncable: decision records (append and
+  // supersede), the archive, and the brief (frozen; direction changes are
+  // decision records).
+  const isHistorical = (rel) =>
+    memory.decisions.records.includes(rel) ||
+    rel.startsWith(`${MEMORY_DIRNAME}/archive/`) ||
+    rel === `${MEMORY_DIRNAME}/project-brief.md`
+  // Outside change-based staleness entirely:
+  // - the glossary defines vocabulary, not implementation;
+  // - the index files are maps. Their references say where information lives,
+  //   and a change to the target does not make the map wrong (a removed
+  //   target is a broken reference, which the validator reports). Counting
+  //   them kept the session-start line firing on every release note edit.
+  const exempt = new Set([
+    `${MEMORY_DIRNAME}/${GLOSSARY_FILENAME}`,
+    `${MEMORY_DIRNAME}/INDEX.md`,
+    `${MEMORY_DIRNAME}/${DECISIONS_DIRNAME}/INDEX.md`,
+  ])
+  const allMemoryFiles = memory.markdownFiles.filter((rel) => !exempt.has(rel))
 
   if (git === null) {
     return {
@@ -94,6 +172,7 @@ function computeStaleness(root, git, memory, options) {
       reason: 'no-git',
       files: [],
       staleFiles: [],
+      historicalBehind: [],
       unchecked: allMemoryFiles.map((path) => ({ path, reason: 'no-git: change history is unavailable' })),
     }
   }
@@ -103,6 +182,7 @@ function computeStaleness(root, git, memory, options) {
       reason: 'no-commits',
       files: [],
       staleFiles: [],
+      historicalBehind: [],
       unchecked: allMemoryFiles.map((path) => ({ path, reason: 'no-commits: nothing to compare against' })),
     }
   }
@@ -205,16 +285,22 @@ function computeStaleness(root, git, memory, options) {
       lastCommit,
       references: uniqueRefs,
       stale,
+      historical: isHistorical(memoryPath),
       changes,
       uncheckedRefs,
     })
   }
 
+  // Decision records, the archive, and the brief are history: never rewritten, so
+  // a moved evidence path can never be "synced" away. Counting them as stale
+  // made the session-start line permanent. They are reported apart, as
+  // information for status and audit, and the hook reads only staleFiles.
   return {
     checkable: true,
     reason: null,
     files,
-    staleFiles: files.filter((f) => f.stale).map((f) => f.path),
+    staleFiles: files.filter((f) => f.stale && !f.historical).map((f) => f.path),
+    historicalBehind: files.filter((f) => f.stale && f.historical).map((f) => f.path),
     unchecked,
   }
 }
@@ -259,10 +345,30 @@ function deriveSignals(state) {
     })
   }
 
-  if (state.claudeMd.large) {
+  // Every governed contract file loads on every session in some harness, so
+  // each one gets the size signal, not only the root CLAUDE.md.
+  for (const file of state.contract.files.filter((f) => f.large)) {
     signals.push({
       id: 'claude-md-large',
-      message: `CLAUDE.md is ${state.claudeMd.lines} lines (signal threshold ${state.claudeMd.threshold})`,
+      path: file.path,
+      message: `${file.path} is ${file.lines} lines (signal threshold ${CLAUDE_MD_LINE_SIGNAL})`,
+    })
+  }
+
+  if (state.memory.exists && state.contract.missingSection.length > 0) {
+    signals.push({
+      id: 'contract-section-missing',
+      message: `${state.contract.missingSection.join(' and ')} ${
+        state.contract.missingSection.length === 1 ? 'has' : 'have'
+      } no memory section, so an agent reading ${state.contract.missingSection.length === 1 ? 'it' : 'them'} is not pointed at memory/`,
+    })
+  }
+
+  if (state.contract.sectionsMatch === false) {
+    const withSection = state.contract.files.filter((f) => f.hasMemorySection).map((f) => f.path)
+    signals.push({
+      id: 'contract-sections-differ',
+      message: `the memory section differs between ${withSection.join(' and ')}; agents reading each see different pointers`,
     })
   }
 

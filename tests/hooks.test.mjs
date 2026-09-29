@@ -25,6 +25,7 @@ import {
 import {
   MAX_FINDINGS,
   editedPath,
+  filesystemFoldsCase,
   isMemoryScoped,
   runPostToolHook,
   selectFindings,
@@ -716,6 +717,7 @@ test('the PostToolUse entry is matched on Edit|Write and narrowed by single-rule
     'Edit(memory/**/*.md)',
     'Edit(CLAUDE.md)',
     'Edit(.claude/CLAUDE.md)',
+    'Edit(AGENTS.md)',
   ])
 
   for (const condition of conditions) {
@@ -747,4 +749,60 @@ test('the SessionStart entry registers no matcher, so it also fires after a comp
   assert.equal(groups.length, 1)
   assert.equal(groups[0].matcher, undefined)
   assert.equal(groups[0].hooks.length, 1)
+})
+
+test('an AGENTS.md edit is validated, and the finding names AGENTS.md', () => {
+  // Without this, narrowing the hook's scope back to the two CLAUDE.md forms
+  // passed the whole suite: nothing ran the hook against an AGENTS.md edit.
+  const root = makeFixture({
+    ...completeMemoryTree(),
+    'AGENTS.md': '# Agents\n\n## Project Memory\n\nRead {{active_handoff_reference}}.\n',
+  })
+  cleanupAfter(test, root)
+
+  const context = contextOf(runHook(VALIDATE_HOOK, editPayload(root, join(root, 'AGENTS.md'))).stdout)
+  assert.notEqual(context, null, 'editing AGENTS.md produced no validation')
+  assert.match(context, /unresolved-placeholder/)
+  assert.match(context, /AGENTS\.md/)
+  assert.doesNotMatch(context, /validation of `memory\/`/, 'the header claims only memory/ was checked')
+})
+
+test('a glossary edit reports the avoided-term warnings it causes in other files', () => {
+  const tree = completeMemoryTree()
+  const root = makeFixture({
+    ...tree,
+    'memory/current-state.md': tree['memory/current-state.md'] + '\nThe auth lane is paused.\n',
+    'memory/glossary.md': '# Glossary\n\n## Language\n\n**Workstream**:\nOne branch of work.\n_Avoid_: lane\n',
+  })
+  cleanupAfter(test, root)
+
+  const onGlossary = contextOf(runHook(VALIDATE_HOOK, editPayload(root, join(root, 'memory', 'glossary.md'))).stdout)
+  assert.notEqual(onGlossary, null)
+  assert.match(onGlossary, /avoided-term/)
+  assert.match(onGlossary, /current-state\.md/)
+
+  // An unrelated edit still does not repeat another file's warnings.
+  const onNext = contextOf(runHook(VALIDATE_HOOK, editPayload(root, join(root, 'memory', 'next-actions.md'))).stdout)
+  assert.ok(onNext === null || !/avoided-term/.test(onNext))
+})
+
+test('case folding follows the filesystem, not the platform', () => {
+  const root = makeFixture(completeMemoryTree())
+  cleanupAfter(test, root)
+
+  // The probe asks the disk: on a case-sensitive filesystem the swapped name
+  // does not exist; on a case-insensitive one it reaches the same inode.
+  const folds = filesystemFoldsCase(root)
+  if (process.platform === 'linux') assert.equal(folds, false)
+  if (process.platform === 'win32') assert.equal(folds, true)
+
+  // Given a folding filesystem, a differently cased edit is still in scope and
+  // still selects the findings about the canonical file.
+  assert.equal(isMemoryScoped(root, 'agents.md', { foldCase: true }), true)
+  assert.equal(isMemoryScoped(root, 'Memory/current-state.md', { foldCase: true }), true)
+  assert.equal(isMemoryScoped(root, 'agents.md', { foldCase: false }), false)
+
+  const findings = [{ check: 'oversized-file', severity: 'warning', artifact: 'AGENTS.md', message: 'big' }]
+  assert.equal(selectFindings(findings, 'agents.md', { foldCase: true }).length, 1)
+  assert.equal(selectFindings(findings, 'agents.md', { foldCase: false }).length, 0)
 })

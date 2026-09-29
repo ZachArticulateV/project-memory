@@ -3,6 +3,7 @@ paths:
   - "memory/**/*.md"
   - "CLAUDE.md"
   - ".claude/CLAUDE.md"
+  - "AGENTS.md"
 ---
 
 # Writing Project Memory
@@ -94,11 +95,36 @@ work moves, not extended into a session log.
 When more than one branch or worktree is active, handoffs are per-workstream.
 Never overwrite another workstream's continuation state.
 
+## Speak the glossary
+
+When `memory/glossary.md` exists, name every concept by its glossary term in
+memory files. A word listed under `_Avoid_` is a synonym the project has already
+rejected; the validator flags it in memory prose (not in decision records, the
+archive, or the contract files). A new project-specific term goes into the glossary the
+moment it is settled, not at the end.
+
+## Mark files that do not exist yet
+
+A path in backticks is checked. A file the work will create is written with
+`(new)` right after it: ``add `test/cli.test.mjs` (new)``.
+
+## Write delegated work as a brief
+
+A next action another agent will pick up states the behavior wanted, a `Done
+when` line anyone can check, and an `Out of scope` line. Name interfaces and
+behaviors, not file paths and line numbers, which go stale while the item
+waits.
+
 ## Avoid duplicate and stale tasks
 
 Remove completed items from `next-actions.md` once their completion is reflected
 in current state, decisions, Git, or archive. Do not record the same action in two
 places, and do not mirror an external tracker that owns the task.
+
+## Keep the two contract files in step
+
+The memory section in `CLAUDE.md` and `AGENTS.md` is one section in two files.
+An edit to one is made to both in the same change.
 
 ## Keep CLAUDE.md stable and lean
 
