@@ -47,6 +47,10 @@ protected writes, so interactive behavior is not covered.
 | `init` reconstructs a brief, keeps hypotheses as hypotheses, and claims only observed runs | verified | Live run: brief marked reconstructed; bounds bug recorded with root cause Unknown; only the observed test run claimed |
 | `sync` does not resolve a bug whose fix is uncommitted and unexercised | verified | Live run: attempted fix recorded, entry left open, criterion left unverified |
 | `handoff for codex:` names memory files explicitly when there is no `AGENTS.md`, and prints rather than runs the launch line | verified | Live run output |
+| `status` writes nothing | verified | Live run: working tree unchanged afterwards; report carried a coverage line |
+| `audit` without Codex falls back to the bundled auditor, names the tier, and writes nothing | verified | Live run: subagent tier named, weaker evidence stated, working tree unchanged; findings were real |
+| `repair` edits only accepted findings and leaves declined ones untouched | verified | Live run: 5 files, 33 lines added and 32 removed; declined brief finding left byte-identical; user-reported test run labelled as such |
+| `grill` runs a round, waits, and writes only after confirmation | unverified | — |
 | `init` installs the writing rule | failing | Protected `.claude/` write refused in a headless run; `init` now prints the copy command |
 
 ## Out of scope for completion
