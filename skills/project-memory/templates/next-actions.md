@@ -15,8 +15,12 @@ wait weeks while the code moves under it.
 ## Now
 
 - [ ] {{immediate_action}}
+- [ ] {{delegated_action}}
   - Done when: {{observable_acceptance_criterion}}
   - Out of scope: {{explicit_exclusion_or_none}}
+
+<!-- Only delegated items carry the two sub-bullets. An item this session will
+     do next is a single line. -->
 
 ## Next
 

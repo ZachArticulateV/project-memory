@@ -10,7 +10,9 @@ capabilities. Everything below is a known boundary, not a defect list.
 
 `memory-validate.mjs` checks shape: unresolved placeholders, broken references,
 duplicate decision IDs, malformed frontmatter, oversized files, empty required
-sections, credential-shaped strings, duplicate tasks.
+sections, credential-shaped strings, duplicate tasks, paths that escape the
+repository, and words the glossary rejected. The `avoided-term` check catches
+only the aliases a glossary lists; a synonym nobody listed passes.
 
 A memory tree can pass every one of those checks and be entirely wrong about the
 project. Validation says the documents are well-formed. It says nothing about
@@ -234,7 +236,8 @@ credential that reached memory; it does not make putting one there safe.
 - `codex` is optional. Without it, `audit` falls back to the bundled subagent.
   A recent Codex is needed for the tier to run at all: the invocation passes
   `--ignore-rules`, and a CLI that predates that flag rejects it and demotes.
-- Under Codex, the hooks do not run, and `${CLAUDE_SKILL_DIR}` and `$0` are
+- Under Codex, the hooks do not run, the path-scoped writing rule does not
+  load (Codex reads no `.claude/rules/`), and `${CLAUDE_SKILL_DIR}` and `$0` are
   resolved by the agent following an instruction in `SKILL.md`, not substituted
   by the harness. Staleness is surfaced only when `status` is run.
 - The plugin depends on current Claude Code behavior for skills, hooks,

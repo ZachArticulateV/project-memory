@@ -4,7 +4,9 @@
 //
 // Emits observed facts only: which memory files exist, what Git says about the
 // branch, HEAD, worktrees and the working tree, which handoff is active and
-// whether it belongs to the current branch, how large CLAUDE.md is, and which
+// whether it belongs to the current branch, how large CLAUDE.md is, which
+// contract files (CLAUDE.md, .claude/CLAUDE.md, AGENTS.md) carry the memory
+// section and whether those copies agree, and which
 // memory files are behind changes to the paths they reference.
 //
 // STALENESS IS CHANGE-BASED, NEVER TIME-BASED. Nothing in this file reads a
@@ -18,11 +20,15 @@ import { resolve } from 'node:path'
 
 import { fileFacts, isDirectory, joinRel, readTextSafe } from './lib/fs-utils.mjs'
 import {
+  AGENTS_MD,
   CLAUDE_MD,
   CLAUDE_MD_LINE_SIGNAL,
+  CLAUDE_MD_SCOPE,
   MEMORY_DIRNAME,
   discoverMemory,
+  extractMemorySection,
   extractReferences,
+  importsAgentsMd,
   resolveActiveHandoff,
   resolveReference,
 } from './lib/memory-model.mjs'
@@ -56,6 +62,7 @@ export function collectProjectState(root, options = {}) {
     large: claudeFacts.present && claudeFacts.lines > CLAUDE_MD_LINE_SIGNAL,
   }
 
+  const contract = collectContract(absRoot)
   const staleness = computeStaleness(absRoot, git, memory, options)
 
   const state = {
@@ -65,12 +72,42 @@ export function collectProjectState(root, options = {}) {
     git,
     handoff,
     claudeMd,
+    contract,
     staleness,
     signals: [],
   }
 
   state.signals = deriveSignals(state)
   return state
+}
+
+/**
+ * Which governed contract files exist, which carry the memory section, and
+ * whether every copy of that section says the same thing.
+ *
+ * A CLAUDE.md that imports AGENTS.md with `@AGENTS.md` carries AGENTS.md's
+ * section by reference, so it is not reported as missing one.
+ */
+export function collectContract(absRoot) {
+  const files = CLAUDE_MD_SCOPE.map((rel) => {
+    const facts = fileFacts(joinRel(absRoot, rel))
+    const text = facts.present ? readTextSafe(joinRel(absRoot, rel)) : null
+    const section = text === null ? null : extractMemorySection(text)
+    return {
+      path: rel,
+      present: facts.present,
+      lines: facts.present ? facts.lines : 0,
+      hasMemorySection: section !== null,
+      importsAgentsMd: text !== null && rel !== AGENTS_MD && importsAgentsMd(text),
+      section,
+    }
+  })
+  const sections = files.filter((f) => f.section !== null).map((f) => f.section)
+  const sectionsMatch = sections.length < 2 ? null : sections.every((s) => s === sections[0])
+  return {
+    files: files.map(({ section, ...rest }) => rest),
+    sectionsMatch,
+  }
 }
 
 /**
@@ -263,6 +300,14 @@ function deriveSignals(state) {
     signals.push({
       id: 'claude-md-large',
       message: `CLAUDE.md is ${state.claudeMd.lines} lines (signal threshold ${state.claudeMd.threshold})`,
+    })
+  }
+
+  if (state.contract.sectionsMatch === false) {
+    const withSection = state.contract.files.filter((f) => f.hasMemorySection).map((f) => f.path)
+    signals.push({
+      id: 'contract-sections-differ',
+      message: `the memory section differs between ${withSection.join(' and ')}; agents reading each see different pointers`,
     })
   }
 

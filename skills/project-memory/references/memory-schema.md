@@ -64,7 +64,7 @@ listed template that does not exist is a broken schema.
 | `acceptance-criteria.md` | `memory/acceptance-criteria.md` |
 | `glossary.md` | `memory/glossary.md` |
 | `decision-record.md` | one file under `memory/decisions/` |
-| `claude-md-section.md` | the memory section inserted into the project's `CLAUDE.md` |
+| `claude-md-section.md` | the memory section inserted into the project's `CLAUDE.md`, and into `AGENTS.md` when it has one |
 
 `memory/decisions/INDEX.md` and `memory/archive/` have no template. The decisions
 index is a short generated list whose shape follows from its entries, and the
@@ -106,9 +106,13 @@ creates a decision record; it does not edit this file.
 reconstructed rather than remembered, and must say so:
 
 ```text
-Origin: reconstructed
-Reconstructed: YYYY-MM-DD
+---
+origin: reconstructed
+reconstructed: YYYY-MM-DD
+---
+
 Evidence:
+
 - README
 - Git history
 - package configuration
@@ -258,7 +262,8 @@ glossary and nothing else.
 
 **Lifecycle:** created lazily, when the first term is resolved. Updated inline
 the moment a term is settled. A renamed concept replaces its entry, and the old
-word joins `_Avoid_`.
+word joins `_Avoid_`. A retired concept's entry is removed; decision records that
+used the word keep it, because they are history.
 
 **Checked:** the validator warns wherever another memory file uses an
 `_Avoid_` word in prose. Decision records and the archive are exempt, since
@@ -303,8 +308,9 @@ Evidence / implementation, Supersedes.
 **Rejected ideas are decisions too.** When a feature or approach is declined
 and is likely to be proposed again, record it: title it as the rejection
 (`Not: server-side rendering`), put the reason under Why, and list where it
-was requested. `grill` and `init` check these records before re-opening a
-settled question. Upstream projects keep these in an `.out-of-scope/`
+was requested. The interview discipline that `grill` and `init` run checks these
+records before re-opening a settled question. A `Not:` record has `status:
+accepted` while the rejection stands. Upstream projects keep these in an `.out-of-scope/`
 directory; here they are ordinary decision records, so they supersede and
 index like any other.
 
@@ -323,7 +329,7 @@ both directions.
 
 | Artifact | Behavior |
 | --- | --- |
-| `CLAUDE.md` | Stable; edited rarely |
+| `CLAUDE.md`, `AGENTS.md` | Stable; edited rarely; memory sections identical |
 | `project-brief.md` | Frozen, or reconstructed with evidence markers |
 | `INDEX.md` | Concise navigation; updated when structure changes |
 | `current-state.md` | Stale state replaced |
@@ -343,15 +349,15 @@ memory inflates.
 A normal substantive session reads only:
 
 ```text
-CLAUDE.md
+CLAUDE.md (or AGENTS.md, for Codex and other agents)
 memory/INDEX.md
 memory/current-state.md
 the active handoff
 memory/next-actions.md
 ```
 
-`bugs-and-risks.md`, individual decisions, acceptance criteria, and anything
-under `archive/` are retrieved when relevant. Archives are effectively never part
+`bugs-and-risks.md`, individual decisions, acceptance criteria, the glossary,
+and anything under `archive/` are retrieved when relevant. Archives are effectively never part
 of startup context.
 
 ## Who writes

@@ -29,7 +29,7 @@ listed there available. Install only the ones you want.
 
 **Codex:** the repository also ships `.codex-plugin/plugin.json`, so the same
 skill installs as a Codex plugin. `init` writes the memory pointer into
-`AGENTS.md` as well as `CLAUDE.md`, and `/project-memory handoff for codex:
+`AGENTS.md` as well as `CLAUDE.md` when the project has one, or on request, and `/project-memory handoff for codex:
 <focus>` prints a ready `codex "..."` launch line. The Claude Code hooks do not
 run under Codex; run `status` at the start of substantial work instead.
 
@@ -94,8 +94,8 @@ code, a session-start line says so — naming the file and the change, not a
 calendar age. When memory is current, it says nothing at all.
 
 Nothing runs in the background and nothing rewrites your files on its own.
-Automatic rewriting produces volume, not accuracy, so every write is a command
-you typed.
+Automatic rewriting produces volume, not accuracy, so every write follows an
+explicit request from you.
 
 ## What it creates in your project
 

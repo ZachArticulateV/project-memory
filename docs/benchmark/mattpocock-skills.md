@@ -136,8 +136,9 @@ record to the conversation. Here the understanding lands in the files the next
 session reads first, and nothing the user did not accept is recorded.
 
 Not adopted: upstream's model-invoked `grilling` fires on any "grill" phrase.
-Here grilling is a mode the user types, because it writes memory, and every
-memory write in this plugin is a command the user issued.
+Here grilling is a mode that runs only on an explicit request to grill a plan,
+because it writes memory, and every memory write in this plugin follows an
+explicit user request.
 
 Changed files: `references/grill.md` (new), `references/interview.md` (new),
 `references/init.md`, `SKILL.md`, both manifests, `README.md`,

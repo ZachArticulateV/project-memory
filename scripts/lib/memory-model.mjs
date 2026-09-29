@@ -77,6 +77,33 @@ export const SCHEMA_OPTIONAL_TARGETS = new Set([
   ...OPTIONAL_MEMORY_FILES,
 ])
 
+/** The heading init renders the memory pointer under, in every contract file. */
+export const MEMORY_SECTION_HEADING = 'Project Memory'
+
+/**
+ * The memory section of a contract file: from its `## Project Memory` heading to
+ * the next level-two heading, whitespace-normalized so two copies that differ
+ * only in line wrapping or trailing spaces compare equal. Null when absent.
+ */
+export function extractMemorySection(text) {
+  const lines = text.replace(/\r\n/g, '\n').split('\n')
+  const start = lines.findIndex((l) => l.trim() === `## ${MEMORY_SECTION_HEADING}`)
+  if (start === -1) return null
+  let end = lines.length
+  for (let i = start + 1; i < lines.length; i += 1) {
+    if (/^##\s/.test(lines[i])) {
+      end = i
+      break
+    }
+  }
+  return lines.slice(start, end).join(' ').replace(/\s+/g, ' ').trim()
+}
+
+/** True when a CLAUDE.md pulls AGENTS.md in whole, so AGENTS.md's section serves both. */
+export function importsAgentsMd(text) {
+  return /^\s*@(\.\/)?AGENTS\.md\s*$/m.test(text)
+}
+
 /** True when an unresolved reference points at a schema-defined optional location. */
 export function isSchemaOptionalTarget(fromRelPosix, ref) {
   if (!fromRelPosix.startsWith(`${MEMORY_DIRNAME}/`) && !CLAUDE_MD_SCOPE.includes(fromRelPosix)) return false

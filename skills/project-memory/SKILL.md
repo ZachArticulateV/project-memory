@@ -98,7 +98,7 @@ files against the same source of truth.
 
 ### 5. Validate the result
 
-Any mode that wrote to `memory/` or `CLAUDE.md` finishes by running:
+Any mode that wrote to `memory/`, `CLAUDE.md`, or `AGENTS.md` finishes by running:
 
 ```bash
 node "${CLAUDE_SKILL_DIR}/../../scripts/memory-validate.mjs" --json

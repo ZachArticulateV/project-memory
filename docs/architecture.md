@@ -81,9 +81,9 @@ Its `allowed-tools` grants exactly three `Bash` patterns, each scoped to one
 bundled script:
 
 ```text
-Bash(${CLAUDE_SKILL_DIR}/../../scripts/project-state.mjs *)
-Bash(${CLAUDE_SKILL_DIR}/../../scripts/memory-validate.mjs *)
-Bash(${CLAUDE_SKILL_DIR}/../../scripts/auditor-bridge.mjs *)
+Bash(node "${CLAUDE_SKILL_DIR}/../../scripts/project-state.mjs" *)
+Bash(node "${CLAUDE_SKILL_DIR}/../../scripts/memory-validate.mjs" *)
+Bash(node "${CLAUDE_SKILL_DIR}/../../scripts/auditor-bridge.mjs" *)
 ```
 
 The skill stays model-invocable, so the only thing keeping ordinary coding work
@@ -203,8 +203,9 @@ Two further codes can appear that the declared list does not name:
 `memory-missing` (info, when there is no tree to validate) and `unreadable-file`
 (error).
 
-Both files the writing rule claims are scanned — the repository-root `CLAUDE.md`
-and `.claude/CLAUDE.md`. The hook's scope is the same list, so a file cannot be
+Every contract file the writing rule claims is scanned — the repository-root
+`CLAUDE.md`, `.claude/CLAUDE.md`, and `AGENTS.md`. The hook's scope is the same
+list, so a file cannot be
 accepted as in-scope for an edit and then go unvalidated.
 
 Secret findings are error severity even though a leaked credential is not a
@@ -323,8 +324,8 @@ not have.
 
 ### Two hooks
 
-`hooks/hooks.json` registers two events — three command entries, because
-`PostToolUse` needs two — both advisory, neither able to block. No `Stop` hook is
+`hooks/hooks.json` registers two events — five command entries, because
+`PostToolUse` needs four — both advisory, neither able to block. No `Stop` hook is
 registered.
 
 **`SessionStart` → `scripts/session-status-hook.mjs`.** Orientation, and only
@@ -352,16 +353,16 @@ regression that reaches Git on that path fails the suite instead of quietly
 slowing every session.
 
 **`PostToolUse` (matcher `Edit|Write`) → `scripts/post-tool-validate-hook.mjs`.**
-Structural warnings after a memory file or `CLAUDE.md` is edited. Registered as
-two entries with `if` conditions `Edit(memory/**/*.md)` and `Edit(CLAUDE.md)`,
-because the `if` field holds exactly one permission rule and has no combining
-syntax. `Edit()` rules cover every file-editing tool, so a `Write()` rule would
+Structural warnings after a memory file or a governed contract file is edited.
+Registered as four entries with `if` conditions `Edit(memory/**/*.md)`,
+`Edit(CLAUDE.md)`, `Edit(.claude/CLAUDE.md)`, and `Edit(AGENTS.md)`, because the
+`if` field holds exactly one permission rule and has no combining syntax. `Edit()` rules cover every file-editing tool, so a `Write()` rule would
 have been accepted, never consulted, and warned about at startup.
 
 The `if` condition is treated as an optimization, not the guarantee: permission
 rule anchoring depends on where the session started, so the script re-checks the
-edited path itself and exits silently for anything outside `memory/` or a
-`CLAUDE.md`.
+edited path itself and exits silently for anything outside `memory/` or the
+governed contract files.
 
 It surfaces every error-severity finding wherever it lives, plus warnings on the
 file just edited, capped at eight, clamped to 4,000 characters. **It always exits
@@ -375,8 +376,9 @@ asserting, current versus intended, causes versus hypotheses, no unobserved
 verification claims, no secrets, immutable decisions, frozen brief, snapshot
 state, per-workstream handoffs, one writer.
 
-Its frontmatter scopes it to `memory/**/*.md`, `CLAUDE.md`, and
-`.claude/CLAUDE.md`. That scoping is the mechanism: the rule is detailed because
+Its frontmatter scopes it to `memory/**/*.md`, `CLAUDE.md`,
+`.claude/CLAUDE.md`, and `AGENTS.md`. Codex does not load Claude Code rules, so
+under Codex the discipline reaches the agent only through the playbooks. That scoping is the mechanism: the rule is detailed because
 memory accuracy is detailed work, and it costs nothing during unrelated work
 because it does not load then. A bare `**/*.md` pattern would load it on any
 Markdown edit and defeat the point; the test suite guards against exactly that.
@@ -405,18 +407,17 @@ disagree about who may invoke it.
 ```text
 project-memory/
 ├── .claude-plugin/plugin.json        Claude Code manifest
-├── .codex-plugin/plugin.json         Codex manifest (same metadata)
 ├── .codex-plugin/plugin.json         Codex manifest, same metadata
 ├── .github/workflows/verify.yml      suite on Windows + Ubuntu, manifest --strict
 ├── README.md
 ├── CHANGELOG.md
 ├── LICENSE
 ├── agents/
-│   └── memory-auditor.md             tier-three auditor; tools: Read, Grep, Glob
+│   └── memory-auditor.md             second-tier auditor; tools: Read, Grep, Glob
 ├── hooks/
 │   └── hooks.json                    SessionStart + PostToolUse; no Stop hook
 ├── rules/
-│   └── memory-writing.md             loads only on memory/ or CLAUDE.md edits
+│   └── memory-writing.md             loads only on memory/ or contract-file edits
 ├── schemas/
 │   └── audit-findings.schema.json    the finding contract both CLI tiers answer
 ├── scripts/
@@ -463,6 +464,7 @@ project-memory/
 └── docs/
     ├── architecture.md               this file
     ├── limitations.md                what the system does not guarantee
+    ├── benchmark/                    patterns adopted from mattpocock/skills
     ├── plans/                        the implementation plan
     └── spec/                         the originating specification
 ```
@@ -476,6 +478,8 @@ under them loads at runtime.
 your-project/
 ├── CLAUDE.md                         gains one "Project Memory" section
 │                                     (created, if the project had none)
+├── AGENTS.md                         the same section, when the project has
+│                                     one or asks for one (Codex reads this)
 ├── .claude/
 │   └── rules/
 │       └── memory-writing.md         copied by init; loads only on memory edits
@@ -498,8 +502,9 @@ your-project/
 Nothing else in a target repository is modified. Everything is plain Markdown in
 version control: it appears in code review, and it is recoverable through normal
 Git history. Removing the system means deleting `memory/`, deleting
-`.claude/rules/memory-writing.md`, and dropping one section from `CLAUDE.md` —
-three deletions, no migration, no residue.
+`.claude/rules/memory-writing.md`, and dropping the memory section from
+`CLAUDE.md` (and `AGENTS.md`, if it has one) — a handful of deletions, no
+migration, no residue.
 
 `acceptance-criteria.md`, `glossary.md`, and `archive/` are conditional. A
 project with no verifiable feature set does not get an empty acceptance file, a
@@ -718,7 +723,7 @@ Four layers, in increasing order of how much they can actually enforce:
 
 The policy is name-not-value: `Requires SUPABASE_SERVICE_ROLE_KEY in the server
 environment`, never the key. The mechanical backstop is the validator's
-`secret-pattern` check — eight patterns, error severity, so CI fails rather than
+`secret-pattern` check — every pattern at error severity, so CI fails rather than
 warns. The excerpt in a finding is a four-character prefix of the match plus its
 length, never the value, so a detection cannot re-leak the credential into logs.
 
@@ -896,7 +901,8 @@ failure this plugin exists to prevent.
 
 - **The hook `if` field holds one permission rule.** The plan assumed a single
   condition covering both memory files and `CLAUDE.md`. There is no combining
-  syntax, so the `PostToolUse` entry ships as two handlers. Separately, `Edit()`
+  syntax, so the `PostToolUse` entry ships as one handler per governed
+  path (four today). Separately, `Edit()`
   rules cover all file-editing tools, so a `Write()` rule would have been
   accepted, never consulted, and warned about at startup.
 - **The `if` condition is an optimization, not the guarantee.** Permission-rule

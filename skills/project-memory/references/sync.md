@@ -49,7 +49,7 @@ changed. Files change constantly; concepts rarely.
 | What actually happened | What moves | What does not |
 | --- | --- | --- |
 | A bug was fixed | `bugs-and-risks.md`: entry resolved and archived | `project-brief.md`, always |
-| A capability now works that did not | `current-state.md` current-reality section | The intended-direction section |
+| A capability now works that did not | `current-state.md` current-reality section; remove or narrow the Intended direction entry it fulfils | An intended-direction entry the change did not fulfil |
 | A capability was verified for the first time | The verification line in `current-state.md` | Its status, if it already worked |
 | A task was completed | `next-actions.md`, once completion is reflected elsewhere | Anything else |
 | A new problem appeared | `bugs-and-risks.md`, with `Confirmed root cause: Unknown` | `current-state.md`, unless capability changed |
@@ -57,6 +57,8 @@ changed. Files change constantly; concepts rarely.
 | A decision was replaced | A new record, and `status: superseded` on the old one | The old record's body |
 | The structure of memory changed | `INDEX.md` | Everything else |
 | A feature's evidence changed | `acceptance-criteria.md` status and its cited evidence | The criterion text |
+| A project concept was renamed or split | `glossary.md`: new word as the entry, old word under `_Avoid_`; the old word replaced in current memory prose | Decision records and `archive/` |
+| A project concept was retired | `glossary.md`: its entry removed | Decision records that used it |
 
 Three cases deserve their own paragraph because they are where syncs go wrong.
 
@@ -112,10 +114,8 @@ the record — a decisions directory full of restatements of the stack is how th
 real decisions become unfindable.
 
 When a decision did occur, render `templates/decision-record.md`, take the next
-sequential id, and add the row to `decisions/INDEX.md`.
-
-When the work renamed or split a project concept, update `glossary.md` in the
-same pass: the new word becomes the entry, the old one moves to `_Avoid_`.
+sequential id, and add the row to `decisions/INDEX.md`. When a sync creates
+`glossary.md` or `acceptance-criteria.md`, add its line to `INDEX.md`.
 
 ## 5. External task state
 

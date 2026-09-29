@@ -154,7 +154,7 @@ Memory is optimized for retrieval, not for completeness at startup.
 Loaded at the start of a substantive session:
 
 ```text
-CLAUDE.md
+CLAUDE.md (or AGENTS.md, for Codex and other agents)
 memory/INDEX.md
 memory/current-state.md
 the active handoff
@@ -166,6 +166,7 @@ Retrieved only when relevant:
 ```text
 memory/bugs-and-risks.md
 memory/acceptance-criteria.md
+memory/glossary.md
 specific decision records
 optional modules
 archives
@@ -175,7 +176,7 @@ Archives are effectively never part of startup context.
 
 Two rules keep this true:
 
-- `CLAUDE.md` references memory by literal path. An `@`-import expands the
+- `CLAUDE.md` and `AGENTS.md` reference memory by literal path. An `@`-import expands the
   referenced file into the startup context at launch, which converts a retrieval
   system into a permanent one.
 - Detailed memory-writing instructions live in a path-scoped rule, so they cost

@@ -17,6 +17,9 @@ Any words after `handoff` are the **focus**: what the next session will be used
 for. `/project-memory handoff finish the refresh-token retry` has the focus
 `finish the refresh-token retry`.
 
+A leading target (`for codex:`, `for a background session:`) names who picks
+the work up (Section 7); strip it before recording the focus.
+
 The focus shapes selection, not truth. It decides which completed work, which
 pointers, and which next steps earn a place, and it is recorded on the
 `Next session focus:` line. It never changes what counts as verified. With no
@@ -108,7 +111,11 @@ When a second workstream appears and memory still holds a single
    rather than the file that no longer exists. A stale pointer in `INDEX.md` is
    a broken reference the validator will flag, and worse, it is the first thing
    a fresh session reads.
-4. Report the promotion. The layout changed; that belongs in the summary.
+4. Check the memory section in `CLAUDE.md` and `AGENTS.md`. The current
+   template names the active handoff through `INDEX.md` and needs no change. A
+   section written before that names `memory/handoff.md` directly: replace that
+   line with the current template's, in every contract file that has it.
+5. Report the promotion. The layout changed; that belongs in the summary.
 
 One workstream's continuation state never overwrites another's. That is the
 whole reason this layout exists.
@@ -119,8 +126,9 @@ checkout. See `safety.md`.
 
 ## 5. Write it
 
-Render `templates/handoff.md`. The structure is fixed by `memory-schema.md`;
-these sections are not optional:
+Render `templates/handoff.md`. Its sections are the structure; what they must
+answer is in `memory-schema.md`. These are not optional, and the validator
+checks the first three:
 
 - **Objective** — what this work was trying to accomplish.
 - **Continue here** — the next exact step, then the ones after it. Never empty,

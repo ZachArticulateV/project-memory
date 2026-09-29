@@ -46,7 +46,8 @@ Suspicions, not causes. Nothing here has been confirmed.
 ## Pointers
 
 Artifacts that already hold the detail: specs, decision records, issues, PRs,
-commits, logs. Link them by path or URL. Do not restate them here.
+commits, logs. Link them by path or URL. Do not restate them here. Omit this
+section when nothing qualifies.
 
 - {{artifact_pointers}}
 

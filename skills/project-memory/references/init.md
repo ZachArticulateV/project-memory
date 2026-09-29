@@ -31,6 +31,12 @@ last meaningful update, and any validator findings — and stop.
 Offer `status` for a health report, `sync` if the probe shows memory trailing
 project changes, and `repair` if validation found structural problems.
 
+One integration step is safe to run on an initialized tree, because it adds a
+pointer and writes no memory: if the project has an `AGENTS.md` without the
+memory section, or a `CLAUDE.md` without it, offer to run Section 3e or 3f for
+that file alone. Trees created before `AGENTS.md` support get their Codex
+pointer this way.
+
 Reinitialize only if the user explicitly asks after being told a system already
 exists. Then treat it as Section 3, and preserve every human-authored file you
 cannot prove is obsolete.
@@ -98,9 +104,13 @@ contains.
 and its evidence:
 
 ```text
-Origin: reconstructed
-Reconstructed: YYYY-MM-DD
+---
+origin: reconstructed
+reconstructed: YYYY-MM-DD
+---
+
 Evidence:
+
 - README
 - Git history
 - package configuration
@@ -136,7 +146,11 @@ names for one concept, one name for two. Use the code's own names as the
 canonical terms unless the user settles otherwise. A project with no such terms
 gets no glossary.
 
-`INDEX.md` renders the glossary line only when `glossary.md` was written. Its
+`INDEX.md` renders the glossary and acceptance-criteria lines only when those
+files were written. `init` writes no handoff, so the read-first handoff line
+says in prose that none exists yet (`handoff` creates one). Never render it as a
+code span naming `handoff.md`: that is a reference to a file that does not
+exist, and the validator reports it. Its
 authority table lists only external systems this project actually
 uses. Inventing a row sends the next session looking for a system that does not
 exist.
@@ -233,6 +247,9 @@ means a real `project-brief.md`, a `current-state.md` that says implementation
 has not started, a `next-actions.md` with the first real steps, and little else.
 Do not scaffold files against a future that may not arrive, and do not describe
 architecture that does not exist.
+
+Then run Sections 3e, 3f, and 3g: the contract pointer and the writing rule
+matter most on a new project, because every later session starts from them.
 
 ## 5. CLAUDE.md shape
 

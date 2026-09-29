@@ -115,6 +115,11 @@ Remove completed items from `next-actions.md` once their completion is reflected
 in current state, decisions, Git, or archive. Do not record the same action in two
 places, and do not mirror an external tracker that owns the task.
 
+## Keep the two contract files in step
+
+The memory section in `CLAUDE.md` and `AGENTS.md` is one section in two files.
+An edit to one is made to both in the same change.
+
 ## Keep CLAUDE.md stable and lean
 
 `CLAUDE.md` holds the stable project contract: what the project does, critical

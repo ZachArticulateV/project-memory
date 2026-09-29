@@ -24,6 +24,9 @@ Read, in this order, and stop at what the plan touches:
 - `memory/decisions/INDEX.md`, then the records the plan touches
 - `memory/project-brief.md`, for purpose and out-of-scope boundaries
 - `memory/bugs-and-risks.md`, when the plan touches an affected component
+- `memory/next-actions.md` and `memory/acceptance-criteria.md`, so the writes
+  in Section 4 update existing items instead of duplicating them
+- `memory/glossary.md`, when it exists
 - the code the plan changes
 
 With no `memory/`, grill against the code alone and say that memory does not
@@ -74,7 +77,10 @@ two records and several actions; ten records is a sign the test was skipped.
 Never write the plan into Current reality. It has not been built.
 
 Apply the writes the user accepts. Render from `templates/`. The schema in
-`memory-schema.md` governs each file.
+`memory-schema.md` governs each file. A new decision record takes the next
+sequential id and gets its row in `decisions/INDEX.md`, and a `Not:` record
+has `status: accepted`, meaning the rejection stands. When a write creates
+`glossary.md` or `acceptance-criteria.md`, add its line to `INDEX.md`.
 
 ## 5. Validate
 
