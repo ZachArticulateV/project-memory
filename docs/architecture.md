@@ -183,7 +183,7 @@ detection still stands when some other reference was uncheckable: stale is
 stale, and only *absence* of change needs every reference to have been readable.
 
 **`scripts/memory-validate.mjs`** — the structural validator. Exits 1 only when
-a finding has `error` severity; warnings and notes never gate. It declares ten
+a finding has `error` severity; warnings and notes never gate. It declares eleven
 checks:
 
 | Check | Severity | Fires on |
@@ -197,7 +197,8 @@ checks:
 | `secret-pattern` | error | A value-shaped credential appears in memory |
 | `duplicate-task` | warning | `next-actions.md` lists the same action twice |
 | `escapes-repository` | error | A memory path or `CLAUDE.md` resolves outside the checkout through a link |
-| `avoided-term` | warning | A memory file uses, in prose, a word `glossary.md` lists under `_Avoid_`. Code, links, URLs, and canonical terms are masked first; decision records and the archive are exempt; capped at 20 per file plus a summary |
+| `avoided-term` | warning | A memory file uses, in prose, a word `glossary.md` lists under `_Avoid_`. Code spans, link targets, and URLs are masked first, and a hit wholly inside a correct canonical term is dropped; decision records and the archive are exempt; capped at 20 per file plus a summary |
+| `glossary-format` | warning | `glossary.md` has an `_Avoid_` line with no term above it, which the `avoided-term` check cannot enforce |
 
 Two further codes can appear that the declared list does not name:
 `memory-missing` (info, when there is no tree to validate) and `unreadable-file`

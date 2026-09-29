@@ -59,6 +59,15 @@ All notable changes to this plugin are documented here. Format follows
 
 ### Fixed
 
+- **Glossary format is stated and checked.** The schema names the accepted
+  term and `_Avoid_` forms; wrapped alias lists, bullet terms, and quoted
+  aliases parse; an alias that contains a canonical term still matches; word
+  edges are Unicode-aware; and a new `glossary-format` warning reports an
+  `_Avoid_` line with no term above it instead of silently enforcing nothing.
+- **Path detection in code spans.** A span with whitespace is a path only when
+  it starts with a path segment and ends with an extension, so commands and
+  prose are not reported broken while `src/façade layer/cache adapter.mjs`
+  still is checked; backslash paths resolve the same way on every platform.
 - **Found by running `init` live on a sample project:** a tree with no decision
   records yet warned four times about the `decisions/` its own templates name
   (now schema vocabulary, like `archive/`); the writing-rule copy into the
@@ -87,8 +96,7 @@ All notable changes to this plugin are documented here. Format follows
   `claude plugin validate --strict` fails on a root `CLAUDE.md` in a plugin.
 
 - The validator read a backticked command (`node scripts/x.mjs`) as a path and
-  reported it broken. A span whose first word has no slash or extension is now
-  a command, not a path; a path containing spaces is still checked.
+  reported it broken; see "Path detection in code spans" for the final rule.
 - Naming a governed contract file (`CLAUDE.md`, `.claude/CLAUDE.md`,
   `AGENTS.md`) that the project has not created was a broken-reference error.
   They are now schema vocabulary, like `archive/`. Found by running the

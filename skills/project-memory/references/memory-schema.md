@@ -260,7 +260,14 @@ fresh session decodes the project's jargon without guessing.
 
 **Each entry carries:** the term in bold, a one- or two-sentence definition of
 what it is (not what it does), and an `_Avoid_:` line listing the words that
-must not stand in for it. A `Flagged ambiguities` section records words that
+must not stand in for it.
+
+**Accepted form:** the term line starts with `**Term**:` (or `**Term:**`,
+optionally after a `- ` bullet), the definition follows on the same line or
+the next, and `_Avoid_:` takes a comma- or semicolon-separated list that may
+wrap onto following lines until a blank line. An `_Avoid_` line with no term
+above it is reported by the `glossary-format` check, because nothing enforces
+it. A `Flagged ambiguities` section records words that
 meant two things and how each was resolved.
 
 **Belongs here:** concepts specific to this project. **Does not:** general

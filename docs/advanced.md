@@ -108,7 +108,8 @@ _Avoid_: lane, track
 ```
 
 The validator warns wherever memory prose uses an avoided word. Code spans,
-links, decision records, and the archive are exempt. A glossary edit reports
+link targets, decision records, and the archive are exempt; link text is
+prose and is checked. A glossary edit reports
 the warnings it causes across memory. Keep definitions free of file paths:
 the glossary is vocabulary, which is why code changes never mark it stale.
 

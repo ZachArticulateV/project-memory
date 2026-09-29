@@ -59,6 +59,7 @@ export const CHECKS = [
   'duplicate-task',
   'escapes-repository',
   'avoided-term',
+  'glossary-format',
 ]
 
 const finding = (check, severity, artifact, message, extra = {}) => ({
@@ -379,46 +380,77 @@ function checkDuplicateTasks(text, rel, findings) {
 /**
  * Parse the glossary into its canonical terms and an alias -> term map.
  *
- * Accepted term lines, each at the start of a line: `**Term**:`, `**Term:**`,
- * and either form followed by the definition on the same line. Any other bold
- * line or heading ends the current term, so an `_Avoid_` line can never be
- * credited to the term before it. Aliases split on commas and semicolons, with
- * markup and a trailing period stripped.
+ * The accepted forms, stated in memory-schema.md:
+ *
+ *   **Term**: optional definition        (or **Term:**, or a "- " bullet before it)
+ *   Definition on the following line(s).
+ *   _Avoid_: alias, other alias;
+ *     a wrapped continuation of the list
+ *
+ * Any other bold line or heading ends the current term, so an `_Avoid_` line
+ * can never be credited to the term before it. An `_Avoid_` line with no term
+ * is returned in `unattributed`, so the validator can say the check is not
+ * seeing it instead of silently doing nothing.
  */
 export function parseGlossary(text) {
   const terms = []
   const aliases = new Map()
+  const unattributed = []
   let term = null
-  for (const raw of maskNonProse(text).split(/\r?\n/)) {
+  let inAvoid = false
+  const addAliases = (list) => {
+    for (const part of list.split(/[,;]/)) {
+      const alias = part.replace(/[*_`"]/g, '').trim().replace(/\.$/, '').trim()
+      if (alias === '' || alias.toLowerCase() === term.toLowerCase()) continue
+      aliases.set(alias.toLowerCase(), { alias, term })
+    }
+  }
+  const lines = maskNonProse(text).split(/\r?\n/)
+  lines.forEach((raw, index) => {
     const line = raw.trim()
-    const heading = /^\*\*(.+?)\*\*\s*:/.exec(line) ?? /^\*\*(.+?):\*\*/.exec(line)
+    if (line === '') {
+      inAvoid = false
+      return
+    }
+    const bare = line.replace(/^[-*]\s+/, '')
+    const heading = /^\*\*(.+?)\*\*\s*:/.exec(bare) ?? /^\*\*(.+?):\*\*/.exec(bare)
     if (heading) {
       term = heading[1].trim()
       terms.push(term)
-      continue
+      inAvoid = false
+      return
     }
-    if (line.startsWith('**') || line.startsWith('#')) {
+    if (bare.startsWith('**') || line.startsWith('#')) {
       term = null
-      continue
+      inAvoid = false
+      return
     }
-    const avoid = /^[_*]Avoid[_*]\s*:\s*(.+)$/.exec(line)
-    if (avoid && term !== null) {
-      for (const part of avoid[1].split(/[,;]/)) {
-        const alias = part.replace(/[*_`]/g, '').trim().replace(/\.$/, '').trim()
-        if (alias === '' || alias.toLowerCase() === term.toLowerCase()) continue
-        aliases.set(alias.toLowerCase(), { alias, term })
+    const avoid = /^[_*]Avoid[_*]\s*:\s*(.*)$/.exec(line)
+    if (avoid) {
+      if (term === null) {
+        unattributed.push({ line: index + 1, text: line })
+        inAvoid = false
+        return
       }
+      addAliases(avoid[1])
+      inAvoid = true
+      return
     }
-  }
-  return { terms, aliases }
+    // A wrapped alias list continues until a blank line or the next term.
+    if (inAvoid && term !== null) addAliases(line)
+  })
+  return { terms, aliases, unattributed }
 }
 
 const MAX_AVOIDED_TERM_FINDINGS_PER_FILE = 20
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-/** A phrase as a whole-word pattern whose words may wrap across lines. */
+/**
+ * A phrase as a whole-word pattern whose words may wrap across lines. Word
+ * edges are Unicode letters and digits, so "bistroé" does not contain "bistro".
+ */
 const phrasePattern = (phrase) =>
-  `(?<![\\w-])${phrase.trim().split(/\s+/).map(escapeRegex).join('\\s+')}(?![\\w-])`
+  `(?<![\\p{L}\\p{N}_-])${phrase.trim().split(/\s+/).map(escapeRegex).join('\\s+')}(?![\\p{L}\\p{N}_-])`
 const blank = (m) => m.replace(/[^\n]/g, ' ')
 
 /**
@@ -426,28 +458,36 @@ const blank = (m) => m.replace(/[^\n]/g, ' ')
  * alias, term }. Pure, so every edge case is testable without a tree.
  *
  * Code spans, fences, comments, link targets, and URLs are masked first: they
- * quote identifiers and addresses rather than name concepts. Canonical terms
- * are masked next, longest first, so an alias that is one word of a canonical
- * term ("account" in **Customer account**) never flags the term itself.
+ * quote identifiers and addresses rather than name concepts. Link TEXT is
+ * prose and is checked. An alias hit lying wholly inside a correct use of a
+ * canonical term ("account" within "Customer account") is dropped; an alias
+ * that merely contains a canonical term ("client account" around "Account")
+ * still counts.
  */
 export function findAvoidedTerms(text, glossary) {
   const { terms, aliases } = glossary
   if (aliases.size === 0) return []
 
-  let prose = maskNonProse(text)
+  const prose = maskNonProse(text)
     .replace(/`[^`\n]*`/g, blank)
     .replace(/\]\([^)\n]*\)/g, blank)
     .replace(/\bhttps?:\/\/\S+/g, blank)
-  const byLength = (a, b) => b.length - a.length
-  for (const term of [...terms].sort(byLength)) {
-    prose = prose.replace(new RegExp(phrasePattern(term), 'gi'), blank)
-  }
 
+  const canonical = []
+  for (const term of terms) {
+    const re = new RegExp(phrasePattern(term), 'giu')
+    let m
+    while ((m = re.exec(prose)) !== null) canonical.push([m.index, m.index + m[0].length])
+  }
+  const insideCanonical = (from, to) => canonical.some(([s, e]) => from >= s && to <= e)
+
+  const byLength = (a, b) => b.length - a.length
   const ordered = [...aliases.values()].sort((a, b) => byLength(a.alias, b.alias))
-  const pattern = new RegExp(ordered.map((a) => `(${phrasePattern(a.alias)})`).join('|'), 'gi')
+  const pattern = new RegExp(ordered.map((a) => `(${phrasePattern(a.alias)})`).join('|'), 'giu')
   const found = []
   let match
   while ((match = pattern.exec(prose)) !== null) {
+    if (insideCanonical(match.index, match.index + match[0].length)) continue
     const group = match.slice(1).findIndex((g) => g !== undefined)
     const { alias, term } = ordered[group]
     found.push({ index: match.index, match: match[0].replace(/\s+/g, ' '), alias, term })
@@ -470,6 +510,19 @@ function checkAvoidedTerms(root, memory, findings) {
   const glossaryText = readTextSafe(joinRel(root, glossaryRel))
   if (glossaryText === null) return
   const glossary = parseGlossary(glossaryText)
+  // An _Avoid_ line the parser could not attach to a term is a word the check
+  // will never enforce. Say so, rather than let the check quietly do less.
+  for (const orphan of glossary.unattributed) {
+    findings.push(
+      finding(
+        'glossary-format',
+        'warning',
+        glossaryRel,
+        'An _Avoid_ line with no term above it is not enforced. Put it under a `**Term**:` line (see memory-schema.md).',
+        { line: orphan.line }
+      )
+    )
+  }
   if (glossary.aliases.size === 0) return
 
   for (const rel of memory.markdownFiles) {

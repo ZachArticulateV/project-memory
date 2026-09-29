@@ -712,3 +712,50 @@ test('module specifiers, code expressions, and files marked (new) are not path r
   const refs = findingsOf(validateMemory(root), 'broken-reference').map((f) => f.reference)
   assert.deepEqual(refs, ['test/missing.test.mjs'])
 })
+
+// --- re-audit: glossary format and path rules ---------------------------------
+
+test('a wrapped _Avoid_ list, bullet terms, and quoted aliases all parse', () => {
+  const g = '- **Memory tree**: the committed directory.\n_Avoid_: notes folder,\n  knowledge base; "wiki"\n\n**Other**:\nX.\n'
+  const { terms, aliases, unattributed } = parseGlossary(g)
+  assert.deepEqual(terms, ['Memory tree', 'Other'])
+  assert.deepEqual([...aliases.keys()].sort(), ['knowledge base', 'notes folder', 'wiki'])
+  assert.deepEqual(unattributed, [])
+})
+
+test('an alias that contains a canonical term still matches; one inside a term does not', () => {
+  const g = '**Account**:\nA ledger.\n\n**Customer account**:\nA billed ledger.\n_Avoid_: client account, customer\n'
+  assert.deepEqual(hits(g, 'We bill the client account monthly.\n'), [['client account', 'Customer account']])
+  assert.deepEqual(hits(g, 'Every Customer account is billed.\n'), [])
+})
+
+test('word edges are Unicode-aware', () => {
+  const g = '**Restaurant**:\nA place.\n_Avoid_: bistro\n'
+  assert.deepEqual(hits(g, 'The bistroé menu.\n'), [])
+  assert.deepEqual(hits(g, 'The bistro menu.\n'), [['bistro', 'Restaurant']])
+})
+
+test('an _Avoid_ line with no term is reported, not silently ignored', () => {
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/glossary.md': '# Glossary\n\n## Language\n\n_Avoid_: lane\n\n**Workstream**:\nA branch.\n',
+    'memory/next-actions.md': tree['memory/next-actions.md'],
+  })
+  cleanupAfter(test, root)
+  const found = findingsOf(validateMemory(root), 'glossary-format')
+  assert.equal(found.length, 1)
+  assert.equal(found[0].line, 5)
+  assert.equal(found[0].severity, 'warning')
+})
+
+test('commands and prose with spaces are not paths; a spaced path under a folder still is', () => {
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/next-actions.md':
+      tree['memory/next-actions.md'] +
+      '\nRun `scripts/build.sh release`, `./scripts/x.sh arg`, and `python3.12 scripts/x.py`, e.g. `e.g. foo.md`.\nSee `docs/missing dir/spec.md`.\nAlso `memory\\\\INDEX.md`.\n',
+  })
+  cleanupAfter(test, root)
+  const refs = findingsOf(validateMemory(root), 'broken-reference').map((f) => f.reference)
+  assert.deepEqual(refs, ['docs/missing dir/spec.md'])
+})

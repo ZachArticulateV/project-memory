@@ -230,10 +230,13 @@ export function looksLikePath(token) {
   if (/[<>|*?"]/.test(t)) return false // placeholder segments and globs, e.g. handoffs/<slug>.md
   if (t.includes('{{')) return false // unresolved placeholder, reported by its own check
   if (t.includes('--')) return false // a command line, e.g. `node --test tests/`
-  // A command with arguments, e.g. `node scripts/memory-validate.mjs`: the first
-  // word carries no slash or extension, so it is a program name, not a path.
-  // A path containing spaces still starts with a path segment and is kept.
-  if (/\s/.test(t) && !/[/.]/.test(t.split(/\s/)[0])) return false
+  // With whitespace, a span is a path only when it starts with a path segment
+  // and ends with a file extension, e.g. `src/façade layer/cache adapter.mjs`.
+  // Commands (`node scripts/x.mjs`, `scripts/build.sh release`) and prose
+  // (`e.g. foo.md`) fail one test or the other. A path whose first segment has
+  // no slash (`My Docs/file.md`) is given up: no syntax separates it from a
+  // command, and a false alarm on every command is the worse failure.
+  if (/\s/.test(t) && !(t.split(/\s/)[0].includes('/') && /\.[A-Za-z0-9]{1,6}$/.test(t))) return false
   if (/^\.{1,2}$/.test(t)) return false
 
   const hasSlash = t.includes('/')
@@ -259,7 +262,9 @@ export function extractReferences(text) {
     while ((match = regex.exec(prose)) !== null) {
       const raw = match[1]
       if (plannedMarker && /^\s*\(new\)/.test(prose.slice(match.index + match[0].length))) continue
-      const cleaned = raw.trim().replace(/^\.\//, '').replace(/[#?].*$/, '')
+      // Backslashes are normalized so `memory\\INDEX.md` resolves the same way
+      // on every platform instead of only on Windows.
+      const cleaned = raw.trim().replace(/\\/g, '/').replace(/^\.\//, '').replace(/[#?].*$/, '')
       if (!looksLikePath(cleaned)) continue
       if (!found.has(cleaned)) {
         found.set(cleaned, { ref: cleaned, kind, line: lineOf(prose, match.index) })
