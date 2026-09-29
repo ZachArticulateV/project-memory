@@ -58,8 +58,8 @@ CLI, and it is the price of the removal described below.
 
 ## Model behavior is instructed, not enforced
 
-Most of this plugin is Markdown read by a model: the router, six mode playbooks,
-three shared policy references, the auditor's system prompt, the writing rule,
+Most of this plugin is Markdown read by a model: the router, seven mode playbooks,
+four shared references, the auditor's system prompt, the writing rule,
 and nine templates. All of it shapes behavior. None of it constrains behavior the
 way code does.
 

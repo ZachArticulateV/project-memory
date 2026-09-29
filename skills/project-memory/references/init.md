@@ -80,7 +80,8 @@ Ask the user when an `UNKNOWN` materially affects the project definition: what
 the project is for, who it serves, what counts as done, what must not change.
 
 Do not ask what the repository already answers. Do not ask a question per
-template field.
+template field. Ask in rounds, each question with your recommended answer, per
+`interview.md`.
 
 A good question names what you found and what you could not settle:
 
@@ -191,8 +192,11 @@ constraints; required integrations; security and compliance considerations; and
 relevant external references.
 
 Ask the high-value questions — the ones whose answers change what gets built.
-Batch them; do not interrogate. Do not ask twenty questions because the list has
-twenty entries.
+Run them as rounds per `interview.md`: the problem and intended users settle
+first, because scope, stack, and constraints hang from them. Attach a
+recommended answer wherever the conversation or the directory gives you a basis
+for one. Batch the frontier; do not interrogate. Do not ask twenty questions
+because the list has twenty entries.
 
 Every field is accounted for in the resulting brief, either answered or recorded
 explicitly as unresolved. A field silently missing reads as "not applicable"; a

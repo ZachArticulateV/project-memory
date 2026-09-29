@@ -16,7 +16,7 @@ const field = (name) => {
   return match ? match[1].trim() : undefined
 }
 
-const MODES = ['init', 'status', 'sync', 'handoff', 'audit', 'repair']
+const MODES = ['init', 'status', 'sync', 'handoff', 'grill', 'audit', 'repair']
 
 test('frontmatter carries the fields the invocation contract depends on', () => {
   assert.ok(frontmatter, 'SKILL.md has no frontmatter block')
@@ -43,7 +43,7 @@ test('description carries an explicit non-trigger clause', () => {
   assert.match(description, /coding|refactor/i)
 })
 
-test('the body routes exactly the six documented modes', () => {
+test('the body routes exactly the seven documented modes', () => {
   for (const mode of MODES) {
     assert.match(body, new RegExp(`\`${mode}\``), `body does not mention mode ${mode}`)
     assert.match(
@@ -55,12 +55,12 @@ test('the body routes exactly the six documented modes', () => {
 })
 
 test('the body handles an unknown or absent mode instead of guessing', () => {
-  assert.match(body, /is not one of the six/)
+  assert.match(body, /is not one of the seven/)
 })
 
 test('every reference file that exists is reachable from the body', () => {
   // Catches orphans: a reference nobody loads is dead weight in the plugin.
-  // The inverse check -- that all six playbooks exist -- lands with the
+  // The inverse check -- that all seven playbooks exist -- lands with the
   // acceptance suite, once the units that author them have shipped.
   const existing = readdirSync(join(skillDir, 'references')).filter((f) => f.endsWith('.md'))
   for (const file of existing) {

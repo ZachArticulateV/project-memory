@@ -15,6 +15,14 @@ All notable changes to this plugin are documented here. Format follows
   Specs, decisions, issues, and commits are linked instead of restated.
 - **Resume prompt.** The handoff report ends with a paste-ready, pointer-only
   prompt for a fresh session in any agent. It is printed, never persisted.
+- **`grill` mode.** `/project-memory grill <plan>` interviews the user about a
+  plan in frontier rounds, each question with a recommended answer, checks
+  every answer against memory and code, and records only what the user
+  confirmed: decision records that pass a three-part test, actions, open
+  questions as blocked items, and done criteria as unverified acceptance
+  criteria.
+- **`references/interview.md`**: the shared interview discipline. `init` now
+  asks its questions through it.
 - **`docs/benchmark/mattpocock-skills.md`**: the adopted and rejected patterns
   from mattpocock/skills, with a scorecard.
 

@@ -122,7 +122,7 @@ function allowedBashRules(source) {
 function documentedInvocations() {
   const sources = [
     ['SKILL.md', skill],
-    ...['audit.md', 'handoff.md', 'init.md', 'repair.md', 'status.md', 'sync.md'].map((n) => [n, reference(n)]),
+    ...['audit.md', 'grill.md', 'handoff.md', 'init.md', 'repair.md', 'status.md', 'sync.md'].map((n) => [n, reference(n)]),
   ]
   const found = []
   for (const [name, body] of sources) {

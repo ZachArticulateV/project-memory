@@ -8,7 +8,7 @@ model to do, it says so — and it matters, because instruction and enforcement 
 not the same guarantee.
 
 **Read this before reading anything else here.** Most of this plugin is Markdown
-that a model reads: the router, six mode playbooks, three policy references, the
+that a model reads: the router, seven mode playbooks, four shared references, the
 auditor prompt, the writing rule, and nine templates. Those shape behavior; they
 do not constrain it the way code does. Exactly three properties are mechanically
 enforced, and [`docs/limitations.md`](./limitations.md) names them: the bundled
@@ -16,7 +16,7 @@ auditor cannot write because its tool grant contains no writer, the Codex tier
 cannot write because it runs under `-s read-only`, and validation warnings cannot
 block an edit because the hook always exits 0.
 
-Two sections below — [The six modes](#the-six-modes) and much of
+Two sections below — [The seven modes](#the-seven-modes) and much of
 [Safeguards](#safeguards) — describe playbook instructions. They are labelled at
 the top of each, and reading them as enforced behavior would be reading this
 document the way the plugin exists to stop people reading memory.
@@ -29,7 +29,7 @@ The spec this implements asks for nine deliverables. Here is where each one is.
 | --- | --- |
 | A. Architecture | [Components, and why each one exists](#components-and-why-each-one-exists) |
 | B. File Tree | [File tree](#file-tree) |
-| C. Skill Interface | [`README.md` → Use](../README.md#use), expanded in [The six modes](#the-six-modes) |
+| C. Skill Interface | [`README.md` → Use](../README.md#use), expanded in [The seven modes](#the-seven-modes) |
 | D. Claude Workflow | [What Claude reads, and when](#what-claude-reads-and-when) |
 | E. User Workflow | [`README.md` → What you actually need](../README.md#what-you-actually-need) |
 | F. Context Cost | [Context cost](#context-cost) |
@@ -67,13 +67,13 @@ Two structural commitments follow from that, and they explain most of the rest:
 
 ## Components, and why each one exists
 
-### One skill, six modes
+### One skill, seven modes
 
 `skills/project-memory/SKILL.md` is a router and nothing else. It resolves the
 mode from `$0`, runs the deterministic probe, loads exactly one playbook, and
 carries the standing rules that hold in every mode.
 
-It is deliberately small. Loading five playbooks to run one mode is the context
+It is deliberately small. Loading six playbooks to run one mode is the context
 inflation this system exists to prevent, so the architecture lives in the
 references and the router stays a table.
 
@@ -90,16 +90,16 @@ The skill stays model-invocable, so the only thing keeping ordinary coding work
 from triggering an audit is the negative half of its `description`. That clause
 is asserted by the test suite rather than assumed.
 
-### Six mode playbooks
+### Seven mode playbooks
 
 One file per mode under `skills/project-memory/references/`: `init.md`,
-`status.md`, `sync.md`, `handoff.md`, `audit.md`, `repair.md`.
+`status.md`, `sync.md`, `handoff.md`, `grill.md`, `audit.md`, `repair.md`.
 
 Each is loaded only by its own mode. Each ends with a "failure modes this mode
 must avoid" section, because the useful part of a playbook is usually the thing
 it forbids rather than the thing it prescribes.
 
-### Three shared policy references
+### Four shared references
 
 Loaded on demand by the modes that need them, so a mode pays only for the policy
 it actually uses:
@@ -109,6 +109,7 @@ it actually uses:
 | `memory-schema.md` | The canonical contract: what each artifact holds, how it changes, who may change it |
 | `evidence-policy.md` | The five-value finding classification, the promotion prohibition, the verification gate, the eight-value audit taxonomy, many-readers-one-writer |
 | `safety.md` | Secrets, untrusted-content normalization, external authority, the auto-memory boundary, branch isolation, the context budget |
+| `interview.md` | How the skill asks the user anything: design tree, frontier rounds, a recommended answer per question, facts looked up rather than asked, answers challenged against memory |
 
 `memory-schema.md` is the authority for artifact shape; the templates render it.
 When the two disagree, the schema is the contract and the template is the bug.
@@ -420,17 +421,19 @@ project-memory/
 │       ├── memory-model.mjs          layout constants, parsing, secret patterns
 │       └── report.mjs                shared CLI contract and renderers
 ├── skills/project-memory/
-│   ├── SKILL.md                      the six-mode router
+│   ├── SKILL.md                      the seven-mode router
 │   ├── references/
 │   │   ├── init.md                   \
 │   │   ├── status.md                  |
 │   │   ├── sync.md                    |  one playbook per mode,
 │   │   ├── handoff.md                 |  loaded one at a time
+│   │   ├── grill.md                   |
 │   │   ├── audit.md                   |
 │   │   ├── repair.md                 /
 │   │   ├── memory-schema.md          \
-│   │   ├── evidence-policy.md         |  shared policy, loaded on demand
-│   │   └── safety.md                 /
+│   │   ├── evidence-policy.md         |  shared references,
+│   │   ├── safety.md                  |  loaded on demand
+│   │   └── interview.md              /
 │   └── templates/
 │       ├── index.md                  → memory/INDEX.md
 │       ├── project-brief.md          → memory/project-brief.md
@@ -490,7 +493,7 @@ three deletions, no migration, no residue.
 verifiable feature set does not get an empty acceptance file, and the archive
 exists when something has been retired into it.
 
-## The six modes
+## The seven modes
 
 The user-facing table is in [`README.md`](../README.md#use).
 
@@ -546,6 +549,16 @@ existing file rather than copying it, then updates `INDEX.md`. Before writing, t
 mode reads whatever is already at the target and checks its `Branch:` line —
 because two branch names can slug to one filename, and writing anyway destroys
 another workstream's state with no error and nothing in the diff to notice.
+
+**`grill`** stress-tests a plan before it is built. It runs the interview
+discipline in `interview.md`: the plan is a design tree, questions are asked a
+frontier at a time with a recommended answer each, facts are looked up rather
+than asked, and every answer is challenged against accepted decisions, the
+brief's out-of-scope boundaries, current reality, and open risks. Nothing is
+written until the frontier is empty and the user confirms. Each settled item
+then goes to one home: a decision record only when the decision is hard to
+reverse, surprising, and a real trade-off; otherwise the action it produces.
+The brief stays frozen, and the plan is never written as current reality.
 
 **`audit`** hands the question to an evaluator outside this context. The
 coordinator assembles the evidence the auditor cannot gather — branch, `HEAD`,
@@ -625,8 +638,8 @@ nothing in the audit path writes.
 | `CLAUDE.md` | Whatever the project's contract file already costs, plus one short section |
 | `SessionStart` hook output | Zero when memory is healthy; a few lines otherwise, hard-capped at 3,000 characters |
 
-That is the entire automatic cost. The plugin's own Markdown — the router, six
-playbooks, three policy references, nine templates, the auditor prompt, the
+That is the entire automatic cost. The plugin's own Markdown — the router, seven
+playbooks, four shared references, nine templates, the auditor prompt, the
 writing rule — loads none of itself at session start.
 
 **Loads on demand:**

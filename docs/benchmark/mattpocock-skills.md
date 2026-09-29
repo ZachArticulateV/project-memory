@@ -24,11 +24,12 @@ iteration that adopted it. `-` means the pattern was absent.
 | Handoff | Name the skills the next agent should invoke | - | Adopted | 1 |
 | Handoff | Output doubles as the next agent's prompt | - | Adopted (resume prompt) | 1 |
 | Handoff | Redact secrets and personal data | Secrets only | Adopted | 1 |
-| Grilling | Design tree, frontier rounds, recommended answer per question | - | Planned | 2 |
-| Grilling | Facts are the agent's job; decisions are the user's | Partial (init 3c) | Planned | 2 |
-| Grilling | Done only when the frontier is empty and the user confirms | - | Planned | 2 |
+| Grilling | Design tree, frontier rounds, recommended answer per question | - | Adopted | 2 |
+| Grilling | Facts are the agent's job; decisions are the user's | Partial (init 3c) | Adopted | 2 |
+| Grilling | Done only when the frontier is empty and the user confirms | - | Adopted | 2 |
+| Grilling | Grilling writes the docs it settles (`grill-with-docs`) | - | Adopted, evidence-gated | 2 |
 | Domain | Ubiquitous-language glossary with `_Avoid_` aliases | - | Planned | 3 |
-| Domain | ADR only when hard to reverse, surprising, and a real trade-off | Partial | Planned | 3 |
+| Domain | ADR only when hard to reverse, surprising, and a real trade-off | Partial | Adopted in `grill`; schema-wide planned | 2, 3 |
 | Domain | Create docs lazily, never scaffold empty | Adopted | Adopted | - |
 | Codex | Per-skill `agents/openai.yaml` with invocation policy | - | Planned | 4 |
 | Codex | Harness-neutral pointer (`AGENTS.md`) to the same memory | - | Planned | 4 |
@@ -77,3 +78,35 @@ Adopted from upstream `handoff` and `claude-handoff`:
 
 Changed files: `references/handoff.md`, `templates/handoff.md`,
 `references/memory-schema.md`, `SKILL.md`.
+
+### Iteration 2: grilling
+
+Adopted from upstream `grilling`, `grill-me`, and `grill-with-docs`, as a
+seventh mode rather than a separate skill, so it shares the router, the state
+probe, and the validator:
+
+- `references/interview.md` is the shared discipline: design tree, frontier
+  rounds, a recommended answer per question, facts looked up by the agent,
+  decisions put to the user, done only on an empty frontier plus confirmation.
+- `/project-memory grill <plan>` runs it against memory and code. Every answer
+  is challenged against accepted decisions, the brief's out-of-scope
+  boundaries, current reality, and open risks, the way upstream
+  `domain-modeling` challenges terms against the glossary.
+- Two branches are always on the tree: **Done** and **Out of scope**.
+- Write-back is the upstream `grill-with-docs` idea with this plugin's gates:
+  nothing is written before confirmation, each settled item has exactly one
+  home, the three-part ADR test decides what becomes a decision record, the
+  brief stays frozen, and a plan is never written as current reality.
+- `init` now asks its unanswerable questions through the same discipline.
+
+Beyond upstream: upstream grilling ends at shared understanding and leaves the
+record to the conversation. Here the understanding lands in the files the next
+session reads first, and nothing the user did not accept is recorded.
+
+Not adopted: upstream's model-invoked `grilling` fires on any "grill" phrase.
+Here grilling is a mode the user types, because it writes memory, and every
+memory write in this plugin is a command the user issued.
+
+Changed files: `references/grill.md` (new), `references/interview.md` (new),
+`references/init.md`, `SKILL.md`, both manifests, `README.md`,
+`docs/architecture.md`, `docs/limitations.md`, `tests/grill.test.mjs` (new).

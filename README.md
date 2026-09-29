@@ -39,6 +39,7 @@ listed there available. Install only the ones you want.
 | `/project-memory status` | Read-only health report. Never writes. |
 | `/project-memory sync` | Reconcile memory with what actually changed. Idempotent — often reports no changes required. |
 | `/project-memory handoff [focus]` | Capture continuation state before `/clear`, a context switch, or the end of a session. Optional focus tailors it to the next session's job; ends with a paste-ready resume prompt. |
+| `/project-memory grill [plan]` | Interview you about a plan in rounds, checking each answer against memory and code, then record the decisions and actions it settled. |
 | `/project-memory audit` | Independently check memory against repository reality. Returns evidence, not edits. |
 | `/project-memory repair` | Correct the problems an audit found, preserving valid human-authored context. |
 
@@ -47,8 +48,8 @@ instructions, and neither of them costs anything during ordinary coding work.
 
 ## What you actually need
 
-You do not need to learn six commands. You need two, and the rest are there for
-when something has gone wrong.
+You do not need to learn seven commands. You need two, and the rest are there for
+when you are planning or when something has gone wrong.
 
 **Once, per project:**
 
@@ -77,6 +78,7 @@ what it must not assume.
 | Symptom | Command |
 | --- | --- |
 | "Is any of this still true?" | `/project-memory status` — read-only, safe any time |
+| "Before I build this, poke holes in it" | `/project-memory grill <plan>` |
 | "I just shipped something substantial" | `/project-memory sync` |
 | "Memory says something I do not believe" | `/project-memory audit` |
 | "The audit was right; fix it" | `/project-memory repair` |
