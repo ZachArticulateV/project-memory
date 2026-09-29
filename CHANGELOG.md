@@ -45,6 +45,20 @@ All notable changes to this plugin are documented here. Format follows
 - **`docs/benchmark/mattpocock-skills.md`**: the adopted and rejected patterns
   from mattpocock/skills, with a scorecard.
 
+- **This repository tracks itself in `memory/`**: a reconstructed brief, a
+  glossary, six decision records (two of them `Not:` rejections), current
+  state, a handoff, next actions, risks, and acceptance criteria.
+
+### Fixed
+
+- The validator read a backticked command (`node scripts/x.mjs`) as a path and
+  reported it broken. A span whose first word has no slash or extension is now
+  a command, not a path; a path containing spaces is still checked.
+- Naming a governed contract file (`CLAUDE.md`, `.claude/CLAUDE.md`,
+  `AGENTS.md`) that the project has not created was a broken-reference error.
+  They are now schema vocabulary, like `archive/`. Found by running the
+  validator on this repository's own memory.
+
 ### Changed
 
 - Handoff redaction covers personal data, not only secret values.

@@ -81,7 +81,10 @@ export const SCHEMA_OPTIONAL_TARGETS = new Set([
 export function isSchemaOptionalTarget(fromRelPosix, ref) {
   if (!fromRelPosix.startsWith(`${MEMORY_DIRNAME}/`) && !CLAUDE_MD_SCOPE.includes(fromRelPosix)) return false
   const target = ref.replace(/^\.\//, '').replace(new RegExp(`^${MEMORY_DIRNAME}/`), '').replace(/\/$/, '')
-  return SCHEMA_OPTIONAL_TARGETS.has(target)
+  // The governed contract files are system vocabulary too: memory explains
+  // that the pointer lives in `CLAUDE.md` and `AGENTS.md` whether or not this
+  // project has created both.
+  return SCHEMA_OPTIONAL_TARGETS.has(target) || CLAUDE_MD_SCOPE.includes(target)
 }
 
 // Size thresholds. These are signals, not limits: nothing is rejected for
@@ -185,6 +188,10 @@ export function looksLikePath(token) {
   if (/[<>|*?"]/.test(t)) return false // placeholder segments and globs, e.g. handoffs/<slug>.md
   if (t.includes('{{')) return false // unresolved placeholder, reported by its own check
   if (t.includes('--')) return false // a command line, e.g. `node --test tests/`
+  // A command with arguments, e.g. `node scripts/memory-validate.mjs`: the first
+  // word carries no slash or extension, so it is a program name, not a path.
+  // A path containing spaces still starts with a path segment and is kept.
+  if (/\s/.test(t) && !/[/.]/.test(t.split(/\s/)[0])) return false
   if (/^\.{1,2}$/.test(t)) return false
 
   const hasSlash = t.includes('/')

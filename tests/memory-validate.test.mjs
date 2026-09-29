@@ -571,3 +571,30 @@ test('an INDEX reference to a glossary that does not exist yet is not broken', (
   cleanupAfter(test, root)
   assert.deepEqual(findingsOf(validateMemory(root), 'broken-reference'), [])
 })
+
+test('a command in a code span is not a path reference, a path with spaces still is', () => {
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/next-actions.md':
+      tree['memory/next-actions.md'] +
+      '\nRun `node scripts/memory-validate.mjs` after editing.\nSee `docs/missing spec.md` for the spec.\n',
+  })
+  cleanupAfter(test, root)
+
+  const refs = findingsOf(validateMemory(root), 'broken-reference').map((f) => f.message)
+  assert.equal(refs.length, 1, JSON.stringify(refs))
+  assert.match(refs[0], /docs\/missing spec\.md/)
+})
+
+test('naming a governed contract file that does not exist is vocabulary, not a broken reference', () => {
+  // Memory explains where the pointer lives (CLAUDE.md, .claude/CLAUDE.md,
+  // AGENTS.md) whether or not this project has created each one.
+  const tree = completeMemoryTree()
+  const root = fixtureWith({
+    'memory/next-actions.md':
+      tree['memory/next-actions.md'] + '\nMirror the section into `AGENTS.md` and `.claude/CLAUDE.md`.\n',
+  })
+  cleanupAfter(test, root)
+
+  assert.deepEqual(findingsOf(validateMemory(root), 'broken-reference'), [])
+})
